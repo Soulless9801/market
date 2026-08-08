@@ -1,6 +1,8 @@
 import type { NewOrderRequest, OrderBookSnapshot } from "../../engine";
 
 export type AgentSideBias = "BUY" | "SELL" | "RANDOM";
+// Passive orders provide liquidity, while aggressive orders try to consume existing liquidity.
+export type ExecutionStyle = "PASSIVE" | "AGGRESSIVE" | "RANDOM";
 
 export interface SimulationContext {
 	clock: number;
@@ -28,6 +30,7 @@ export interface RetailTraderAgentOptions {
 	seed: number;
 	maxPriceOffset?: number;
 	bias?: AgentSideBias;
+	executionStyle?: ExecutionStyle;
 }
 
 class SeededRandom {
@@ -41,6 +44,43 @@ class SeededRandom {
 		this.state = (this.state * 1664525 + 1013904223) >>> 0;
 		return this.state / 0x100000000;
 	}
+}
+
+export function buildDefaultAgents(seed: number, referencePrice = 100): TraderAgent[] {
+	return [
+		new MarketMakerAgent("mm-1", {
+			referencePrice,
+			spread: 2,
+			quantity: 10,
+		}),
+		new RetailTraderAgent("retail-1", {
+			referencePrice,
+			spread: 2,
+			quantity: 8,
+			seed,
+			maxPriceOffset: 1,
+			bias: "BUY",
+			executionStyle: "AGGRESSIVE",
+		}),
+		new RetailTraderAgent("retail-2", {
+			referencePrice,
+			spread: 2,
+			quantity: 8,
+			seed: seed + 1,
+			maxPriceOffset: 1,
+			bias: "SELL",
+			executionStyle: "AGGRESSIVE",
+		}),
+		new RetailTraderAgent("retail-3", {
+			referencePrice,
+			spread: 2,
+			quantity: 8,
+			seed: seed + 2,
+			maxPriceOffset: 1,
+			bias: "RANDOM",
+			executionStyle: "RANDOM",
+		}),
+	];
 }
 
 export class MarketMakerAgent implements TraderAgent {
@@ -88,6 +128,7 @@ export class RetailTraderAgent implements TraderAgent {
 	private readonly quantity: number;
 	private readonly maxPriceOffset: number;
 	private readonly bias: AgentSideBias;
+	private readonly executionStyle: ExecutionStyle;
 	private readonly random: SeededRandom;
 
 	constructor(id: string, options: RetailTraderAgentOptions) {
@@ -97,16 +138,15 @@ export class RetailTraderAgent implements TraderAgent {
 		this.quantity = Math.max(1, options.quantity);
 		this.maxPriceOffset = Math.max(0, options.maxPriceOffset ?? 1);
 		this.bias = options.bias ?? "RANDOM";
+		this.executionStyle = options.executionStyle ?? "RANDOM";
 		this.random = new SeededRandom(options.seed);
 	}
 
 	step(context: SimulationContext): NewOrderRequest[] {
 		const midPrice = context.midPrice ?? this.referencePrice;
 		const side = this.resolveSide();
-		const priceOffset = this.random.next() * this.maxPriceOffset;
-		const price = side === "BUY"
-			? Math.max(1, midPrice + priceOffset)
-			: Math.max(1, midPrice + this.spread + priceOffset);
+		const executionStyle = this.resolveExecutionStyle();
+		const price = this.calculateOrderPrice(side, executionStyle, midPrice, context.snapshot);
 		const quantity = Math.max(1, Math.round(this.quantity + this.random.next() * 3));
 
 		return [
@@ -125,5 +165,45 @@ export class RetailTraderAgent implements TraderAgent {
 			return this.bias;
 		}
 		return this.random.next() < 0.5 ? "BUY" : "SELL";
+	}
+
+	private resolveExecutionStyle(): "PASSIVE" | "AGGRESSIVE" {
+		if (this.executionStyle === "PASSIVE" || this.executionStyle === "AGGRESSIVE") {
+			return this.executionStyle;
+		}
+		return this.random.next() < 0.5 ? "PASSIVE" : "AGGRESSIVE";
+	}
+
+	private calculateOrderPrice(side: "BUY" | "SELL", executionStyle: "PASSIVE" | "AGGRESSIVE", midPrice: number, snapshot: OrderBookSnapshot): number {
+		const bestBid = snapshot.bids[0]?.price;
+		const bestAsk = snapshot.asks[0]?.price;
+		const halfSpread = this.spread / 2;
+		const priceOffset = this.random.next() * this.maxPriceOffset;
+
+		if (side === "BUY") {
+			if (executionStyle === "PASSIVE") {
+				if (bestBid !== undefined) {
+					return Math.max(1, bestBid - priceOffset);
+				}
+				return Math.max(1, midPrice - halfSpread - priceOffset);
+			}
+
+			if (bestAsk !== undefined) {
+				return bestAsk;
+			}
+			return Math.max(1, midPrice + halfSpread + priceOffset);
+		}
+
+		if (executionStyle === "PASSIVE") {
+			if (bestAsk !== undefined) {
+				return Math.max(1, bestAsk + priceOffset);
+			}
+			return Math.max(1, midPrice + halfSpread + priceOffset);
+		}
+
+		if (bestBid !== undefined) {
+			return bestBid;
+		}
+		return Math.max(1, midPrice - halfSpread - priceOffset);
 	}
 }
