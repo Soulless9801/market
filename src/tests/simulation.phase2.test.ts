@@ -7,11 +7,12 @@ describe("Phase 2 simulation layer", () => {
 it("builds the default market composition with one market maker and two retail traders", () => {
 	const agents = buildDefaultAgents(7, 100);
 
-	expect(agents).toHaveLength(3);
+	expect(agents).toHaveLength(4);
 	expect(agents[0]).toBeInstanceOf(MarketMakerAgent);
 	expect(agents[1]).toBeInstanceOf(RetailTraderAgent);
 	expect(agents[2]).toBeInstanceOf(RetailTraderAgent);
-	expect(agents.map((agent) => agent.id)).toEqual(["mm-1", "retail-1", "retail-2"]);
+	expect(agents[3]).toBeInstanceOf(RetailTraderAgent);
+	expect(agents.map((agent) => agent.id)).toEqual(["mm-1", "retail-1", "retail-2", "retail-3"]);
 });
 
 it("market maker agent emits both bid and ask limit orders around the midprice", () => {
