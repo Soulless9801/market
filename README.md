@@ -11,9 +11,8 @@ Implemented:
 - ordered-statistic-tree price level index (logarithmic best-price insert/remove/select)
 - price-time priority matching
 - limit and market order handling
-- order cancellation
-- unit tests for core matching behavior
-
+- deterministic simulation layer with agents and an event loop
+- unit tests for core matching behavior and simulation steps
 ## Architecture (engine-first)
 
 The simulation engine is separated from React UI:
