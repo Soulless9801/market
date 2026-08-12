@@ -3,9 +3,9 @@ import { describe, expect, it } from "vitest";
 import { Exchange } from "../engine";
 import { buildDefaultAgents, MarketMakerAgent, RetailTraderAgent, Simulator } from "../simulation";
 
-describe("Phase 2 simulation layer", () => {
+describe("simulation", () => {
 	
-	it("builds the default market composition with one market maker and two retail traders", () => {
+	it("builds the default market composition with one market maker and three retail traders", () => {
 		const agents = buildDefaultAgents(7, 100);
 
 		expect(agents).toHaveLength(4);
