@@ -45,9 +45,13 @@ export interface TradeEvent {
 	price: number;
 	quantity: number;
 	buyOrderId: string;
+	buyerParticipantId: string;
 	sellOrderId: string;
+	sellerParticipantId: string;
 	makerOrderId: string;
+	makerParticipantId: string;
 	takerOrderId: string;
+	takerParticipantId: string;
 	aggressorSide: Side;
 	timestamp: number;
 }

@@ -4,18 +4,19 @@ import { Exchange } from "../engine";
 import { buildDefaultAgents, MarketMakerAgent, RetailTraderAgent, Simulator } from "../simulation";
 
 describe("Phase 2 simulation layer", () => {
-it("builds the default market composition with one market maker and two retail traders", () => {
-	const agents = buildDefaultAgents(7, 100);
+	
+	it("builds the default market composition with one market maker and two retail traders", () => {
+		const agents = buildDefaultAgents(7, 100);
 
-	expect(agents).toHaveLength(4);
-	expect(agents[0]).toBeInstanceOf(MarketMakerAgent);
-	expect(agents[1]).toBeInstanceOf(RetailTraderAgent);
-	expect(agents[2]).toBeInstanceOf(RetailTraderAgent);
-	expect(agents[3]).toBeInstanceOf(RetailTraderAgent);
-	expect(agents.map((agent) => agent.id)).toEqual(["mm-1", "retail-1", "retail-2", "retail-3"]);
-});
+		expect(agents).toHaveLength(4);
+		expect(agents[0]).toBeInstanceOf(MarketMakerAgent);
+		expect(agents[1]).toBeInstanceOf(RetailTraderAgent);
+		expect(agents[2]).toBeInstanceOf(RetailTraderAgent);
+		expect(agents[3]).toBeInstanceOf(RetailTraderAgent);
+		expect(agents.map((agent) => agent.id)).toEqual(["mm-1", "retail-1", "retail-2", "retail-3"]);
+	});
 
-it("market maker agent emits both bid and ask limit orders around the midprice", () => {
+	it("market maker agent emits both bid and ask limit orders around the midprice", () => {
 		const exchange = new Exchange();
 		const agent = new MarketMakerAgent("mm-1", {
 			referencePrice: 100,
@@ -309,8 +310,16 @@ it("market maker agent emits both bid and ask limit orders around the midprice",
 		expect(simulator.getClock()).toBe(0);
 		expect(simulator.getTradeHistory()).toHaveLength(0);
 		expect(simulator.getEvents()).toHaveLength(0);
-		expect(simulator.getParticipantStats()).toEqual([
-			expect.objectContaining({ agentId: "mm-1", ordersSubmitted: 0, inventory: 0 }),
+		expect(simulator.getParticpantPortfolios()).toEqual([
+			expect.objectContaining({ 
+				participantId: "mm-1", 
+				cash: 100000,
+				equity: 100000,
+				inventory: 0,
+				marketValue: 0,
+				midPrice: 100,
+				pnl: 0,
+			}),
 		]);
 	});
 });

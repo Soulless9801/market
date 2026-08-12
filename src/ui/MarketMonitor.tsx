@@ -3,7 +3,8 @@ import type { CSSProperties, ReactElement } from "react";
 
 import type { OrderBookSnapshot } from "../engine";
 import { buildDefaultAgents, Simulator } from "../simulation";
-import { buildMarketViewModel, calculateMidPrice, type MarketViewModel } from "./marketViewModel";
+import { buildMarketViewModel, type MarketViewModel } from "./marketViewModel";
+import { calculateMidPrice } from "../engine";
 
 const DEFAULT_SEED = 7;
 const DEFAULT_REFERENCE_PRICE = 100;
@@ -30,7 +31,7 @@ function useSimulationController() {
 		return buildMarketViewModel(
 			simulator.getOrderBookSnapshot(),
 			simulator.getTradeHistory(),
-			simulator.getParticipantStats(),
+			simulator.getParticpantPortfolios(),
 			simulator.getClock(),
 			[DEFAULT_REFERENCE_PRICE],
 		);
@@ -44,7 +45,7 @@ function useSimulationController() {
 			buildMarketViewModel(
 				initialSnapshot,
 				simulator.getTradeHistory(),
-				simulator.getParticipantStats(),
+				simulator.getParticpantPortfolios(),
 				simulator.getClock(),
 				[getMidPrice(initialSnapshot)],
 			),
@@ -73,7 +74,7 @@ function useSimulationController() {
 				buildMarketViewModel(
 					snapshot,
 					simulator.getTradeHistory(),
-					simulator.getParticipantStats(),
+					simulator.getParticpantPortfolios(),
 					simulator.getClock(),
 					[...previous.midPriceSeries.slice(-39), nextMidPrice],
 				),
@@ -243,7 +244,7 @@ function MarketMonitor() {
 							{viewModel.participants.map((participant) => (
 								<div key={participant.agentId} style={{ padding: "10px 12px", border: "1px solid #23304d", borderRadius: "8px", background: "#081120" }}>
 									<div style={{ fontWeight: 600 }}>{participant.agentId}</div>
-									<div style={{ marginTop: "4px", color: "#86a0c9", fontSize: "14px" }}>Orders: {participant.ordersSubmitted}</div>
+									<div style={{ marginTop: "4px", color: "#86a0c9", fontSize: "14px" }}>PNL: {participant.pnl}</div>
 									<div style={{ color: "#86a0c9", fontSize: "14px" }}>Inventory: {participant.inventory}</div>
 								</div>
 							))}

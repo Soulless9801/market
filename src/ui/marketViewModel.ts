@@ -1,5 +1,10 @@
 import type { OrderBookSnapshot, TradeEvent } from "../engine";
-import type { ParticipantStats } from "../simulation";
+import type { PortfolioSnapshot } from "../simulation/portfolio";
+import {
+	calculateMidPrice,
+	calculateSpread,
+	calculateOrderImbalance,
+} from "../engine";
 
 export interface BookRow {
 	side: "BID" | "ASK";
@@ -39,41 +44,41 @@ export interface MarketViewModel {
 
 export interface ParticipantSnapshot {
 	agentId: string;
-	ordersSubmitted: number;
 	inventory: number;
+	pnl: number;
 }
 
-export function calculateMidPrice(snapshot: OrderBookSnapshot, fallback = 100): number {
-	const bestBid = snapshot.bids[0]?.price;
-	const bestAsk = snapshot.asks[0]?.price;
-	if (bestBid !== undefined && bestAsk !== undefined) {
-		return (bestBid + bestAsk) / 2;
-	}
-	return fallback;
-}
+// export function calculateMidPrice(snapshot: OrderBookSnapshot, fallback = 100): number {
+// 	const bestBid = snapshot.bids[0]?.price;
+// 	const bestAsk = snapshot.asks[0]?.price;
+// 	if (bestBid !== undefined && bestAsk !== undefined) {
+// 		return (bestBid + bestAsk) / 2;
+// 	}
+// 	return fallback;
+// }
 
-export function calculateSpread(snapshot: OrderBookSnapshot): number | null {
-	const bestBid = snapshot.bids[0]?.price;
-	const bestAsk = snapshot.asks[0]?.price;
-	if (bestBid === undefined || bestAsk === undefined) {
-		return null;
-	}
-	return bestAsk - bestBid;
-}
+// export function calculateSpread(snapshot: OrderBookSnapshot): number | null {
+// 	const bestBid = snapshot.bids[0]?.price;
+// 	const bestAsk = snapshot.asks[0]?.price;
+// 	if (bestBid === undefined || bestAsk === undefined) {
+// 		return null;
+// 	}
+// 	return bestAsk - bestBid;
+// }
 
-export function calculateOrderImbalance(snapshot: OrderBookSnapshot) {
-	const bidVolume = snapshot.bids.reduce((sum, level) => sum + level.quantity, 0);
-	const askVolume = snapshot.asks.reduce((sum, level) => sum + level.quantity, 0);
-	const totalVolume = bidVolume + askVolume;
-	const imbalance = totalVolume === 0 ? 0 : bidVolume / totalVolume;
-	return {
-		bidVolume,
-		askVolume,
-		imbalance,
-		bidPercent: Math.round(imbalance * 1000) / 10,
-		askPercent: Math.round((1 - imbalance) * 1000) / 10,
-	};
-}
+// export function calculateOrderImbalance(snapshot: OrderBookSnapshot) {
+// 	const bidVolume = snapshot.bids.reduce((sum, level) => sum + level.quantity, 0);
+// 	const askVolume = snapshot.asks.reduce((sum, level) => sum + level.quantity, 0);
+// 	const totalVolume = bidVolume + askVolume;
+// 	const imbalance = totalVolume === 0 ? 0 : bidVolume / totalVolume;
+// 	return {
+// 		bidVolume,
+// 		askVolume,
+// 		imbalance,
+// 		bidPercent: Math.round(imbalance * 1000) / 10,
+// 		askPercent: Math.round((1 - imbalance) * 1000) / 10,
+// 	};
+// }
 
 export function buildTradeTape(trades: TradeEvent[], limit = 12): TradeTapeEntry[] {
 	return trades.slice(-limit).reverse().map((trade) => ({
@@ -85,11 +90,11 @@ export function buildTradeTape(trades: TradeEvent[], limit = 12): TradeTapeEntry
 	}));
 }
 
-export function buildParticipantSnapshots(stats: ParticipantStats[]): ParticipantSnapshot[] {
+export function buildParticipantSnapshots(stats: PortfolioSnapshot[]): ParticipantSnapshot[] {
 	return stats.map((stat) => ({
-		agentId: stat.agentId,
-		ordersSubmitted: stat.ordersSubmitted,
+		agentId: stat.participantId,
 		inventory: stat.inventory,
+		pnl: stat.pnl,
 	}));
 }
 
@@ -132,7 +137,7 @@ export function buildBookRows(snapshot: OrderBookSnapshot): { bids: BookRow[]; a
 export function buildMarketViewModel(
 	snapshot: OrderBookSnapshot,
 	tradeHistory: TradeEvent[],
-	participantStats: ParticipantStats[],
+	portfolioSnapshots: PortfolioSnapshot[],
 	clock: number,
 	midPriceSeries: number[],
 ): MarketViewModel {
@@ -149,7 +154,7 @@ export function buildMarketViewModel(
 		tradeCount: tradeHistory.length,
 		totalVolume,
 		imbalance,
-		participants: buildParticipantSnapshots(participantStats),
+		participants: buildParticipantSnapshots(portfolioSnapshots),
 		asks: rows.asks,
 		bids: rows.bids,
 		trades: buildTradeTape(tradeHistory),

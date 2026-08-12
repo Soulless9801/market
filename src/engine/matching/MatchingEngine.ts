@@ -104,17 +104,24 @@ export class MatchingEngine {
 		maker: RestingOrder,
 		quantity: number,
 	): TradeEvent {
+
 		const buyOrderId = order.side === "BUY" ? order.id : maker.id;
+		const buyerParticipantId = order.side === "BUY" ? order.participantId : maker.participantId;
 		const sellOrderId = order.side === "SELL" ? order.id : maker.id;
+		const sellerParticipantId = order.side === "SELL" ? order.participantId : maker.participantId;
 
 		return {
 			tradeId: this.options.createTradeId(),
 			price: maker.price, // On lit venues, fills occur at resting order (maker) price.
 			quantity,
 			buyOrderId,
+			buyerParticipantId,
 			sellOrderId,
+			sellerParticipantId,
 			makerOrderId: maker.id,
+			makerParticipantId: maker.participantId,
 			takerOrderId: order.id,
+			takerParticipantId: order.participantId,
 			aggressorSide: order.side,
 			timestamp: this.options.now(),
 		};

@@ -1,6 +1,8 @@
 import { Exchange, type ExecutionReport, type OrderBookSnapshot, type TradeEvent } from "../../engine";
 import type { SimulationEvent } from "../events";
 import type { SimulationContext, TraderAgent } from "../agents";
+import { PortfolioManager } from "../portfolio";
+import type { PortfolioSnapshot } from "../portfolio";
 
 export interface SimulatorOptions {
 	exchange?: Exchange;
@@ -8,11 +10,11 @@ export interface SimulatorOptions {
 	referencePrice?: number;
 }
 
-export interface ParticipantStats {
-	agentId: string;
-	ordersSubmitted: number;
-	inventory: number;
-}
+// export interface ParticipantStats {
+// 	agentId: string;
+// 	ordersSubmitted: number;
+// 	inventory: number;
+// }
 
 export interface StepResult {
 	step: number;
@@ -26,15 +28,17 @@ export class Simulator {
 	private readonly agents: TraderAgent[];
 	private readonly referencePrice: number;
 	private readonly events: SimulationEvent[] = [];
-	private readonly participantStats = new Map<string, ParticipantStats>();
+	// private readonly participantStats = new Map<string, ParticipantStats>();
 	private readonly orderParticipants = new Map<string, string>();
 	private clock = 0;
+
+	private readonly portfolioManager = new PortfolioManager();
 
 	constructor(options: SimulatorOptions) {
 		this.exchange = options.exchange ?? new Exchange();
 		this.agents = options.agents;
 		this.referencePrice = options.referencePrice ?? 100;
-		this.initializeParticipantStats();
+		this.initializeParticipantPortfolios();
 	}
 
 	runStep(): StepResult {
@@ -53,7 +57,7 @@ export class Simulator {
 			const orders = agent.step(context);
 			for (const order of orders) {
 				const report = this.exchange.submitOrder(order);
-				this.recordOrderSubmission(agent.id, report.orderId);
+				// this.recordOrderSubmission(agent.id, report.orderId);
 				reports.push(report);
 				stepEvents.push({
 					type: "order-submitted",
@@ -64,7 +68,7 @@ export class Simulator {
 				});
 
 				for (const trade of report.trades) {
-					this.applyTrade(trade);
+					this.portfolioManager.applyTrade(trade);
 				}
 
 				if (report.trades.length > 0) {
@@ -99,10 +103,11 @@ export class Simulator {
 	reset(): void {
 		this.exchange = new Exchange();
 		this.events.splice(0, this.events.length);
-		this.participantStats.clear();
+		this.portfolioManager.reset();
+		// this.participantStats.clear();
 		this.orderParticipants.clear();
 		this.clock = 0;
-		this.initializeParticipantStats();
+		this.initializeParticipantPortfolios();
 	}
 
 	getEvents(): SimulationEvent[] {
@@ -121,49 +126,48 @@ export class Simulator {
 		return this.exchange.getTradeHistory();
 	}
 
-	getParticipantStats(): ParticipantStats[] {
-		return Array.from(this.participantStats.values());
+	getParticpantPortfolios(): PortfolioSnapshot[] {
+		const snapshot = this.exchange.getOrderBookSnapshot();
+		return this.agents.map((agent) => {
+			const portfolioSnapshot = this.portfolioManager.getPortfolioSnapshot(agent.id, snapshot);
+			if (!portfolioSnapshot) {
+				throw new Error(`Portfolio snapshot for agent ${agent.id} not found`);
+			}
+			return portfolioSnapshot;
+		});
 	}
+
+	// getParticipantStats(): ParticipantStats[] {
+	// 	return Array.from(this.participantStats.values());
+	// }
 
 	getClock(): number {
 		return this.clock;
 	}
 
-	private initializeParticipantStats(): void {
+	private initializeParticipantPortfolios(): void {
 		for (const agent of this.agents) {
-			this.participantStats.set(agent.id, {
-				agentId: agent.id,
-				ordersSubmitted: 0,
-				inventory: 0,
-			});
+			this.portfolioManager.createPortfolio(agent.id, 100000);
 		}
 	}
 
-	private recordOrderSubmission(agentId: string, orderId: string): void {
-		this.orderParticipants.set(orderId, agentId);
-		const participant = this.participantStats.get(agentId);
-		if (participant) {
-			participant.ordersSubmitted += 1;
-		}
-	}
+	// private initializeParticipantStats(): void {
+	// 	for (const agent of this.agents) {
+	// 		this.participantStats.set(agent.id, {
+	// 			agentId: agent.id,
+	// 			ordersSubmitted: 0,
+	// 			inventory: 0,
+	// 		});
+	// 	}
+	// }
 
-	private applyTrade(trade: TradeEvent): void {
-		const makerParticipantId = this.orderParticipants.get(trade.makerOrderId);
-		const takerParticipantId = this.orderParticipants.get(trade.takerOrderId);
-		if (makerParticipantId) {
-			this.updateInventory(makerParticipantId, trade.buyOrderId === trade.makerOrderId ? trade.quantity : -trade.quantity);
-		}
-		if (takerParticipantId) {
-			this.updateInventory(takerParticipantId, trade.buyOrderId === trade.takerOrderId ? trade.quantity : -trade.quantity);
-		}
-	}
-
-	private updateInventory(agentId: string, delta: number): void {
-		const participant = this.participantStats.get(agentId);
-		if (participant) {
-			participant.inventory += delta;
-		}
-	}
+	// private recordOrderSubmission(agentId: string, orderId: string): void {
+	// 	this.orderParticipants.set(orderId, agentId);
+	// 	const participant = this.participantStats.get(agentId);
+	// 	if (participant) {
+	// 		participant.ordersSubmitted += 1;
+	// 	}
+	// }
 
 	private createContext(): SimulationContext {
 		const snapshot = this.exchange.getOrderBookSnapshot();

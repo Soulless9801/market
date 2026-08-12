@@ -5,9 +5,8 @@ import {
 	buildBookRows,
 	buildMarketViewModel,
 	buildTradeTape,
-	calculateOrderImbalance,
-	calculateSpread,
 } from "../ui";
+import { calculateOrderImbalance, calculateSpread } from "../engine";
 
 describe("Phase 3 view-model helpers", () => {
 	it("calculates spread from best bid and best ask", () => {
@@ -46,9 +45,13 @@ describe("Phase 3 view-model helpers", () => {
 				price: 100.0,
 				quantity: 10,
 				buyOrderId: "buy-1",
+				buyerParticipantId: "retail-1",
 				sellOrderId: "sell-1",
+				sellerParticipantId: "mm-1",
 				makerOrderId: "sell-1",
+				makerParticipantId: "mm-1",
 				takerOrderId: "buy-1",
+				takerParticipantId: "retail-1",
 				aggressorSide: "BUY",
 				timestamp: 3,
 			},
@@ -57,9 +60,13 @@ describe("Phase 3 view-model helpers", () => {
 				price: 100.1,
 				quantity: 5,
 				buyOrderId: "buy-2",
+				buyerParticipantId: "retail-2",
 				sellOrderId: "sell-2",
+				sellerParticipantId: "mm-2",
 				makerOrderId: "sell-2",
+				makerParticipantId: "mm-2",
 				takerOrderId: "buy-2",
+				takerParticipantId: "retail-2",
 				aggressorSide: "SELL",
 				timestamp: 4,
 			},
