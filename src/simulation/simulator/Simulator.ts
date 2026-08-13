@@ -57,6 +57,7 @@ export class Simulator {
 			const orders = agent.step(context);
 			for (const order of orders) {
 				const report = this.exchange.submitOrder(order);
+				this.portfolioManager.incrementOrdersSubmitted(agent.id);
 				// this.recordOrderSubmission(agent.id, report.orderId);
 				reports.push(report);
 				stepEvents.push({

@@ -13,6 +13,7 @@ describe("PortfolioManager", () => {
 
 		expect(portfolio).toEqual({
 			participantId: "trader-1",
+			ordersSubmitted: 0,
 			initialCash: 50000,
 			cash: 50000,
 			inventory: 0,
@@ -33,6 +34,24 @@ describe("PortfolioManager", () => {
 		const manager = new PortfolioManager();
 
 		expect(manager.getPortfolio("unknown")).toBeUndefined();
+	});
+
+	it("increments the ordersSubmitted count for a participant", () => {
+		const manager = new PortfolioManager();
+		manager.createPortfolio("trader-1", 50000);
+
+		manager.incrementOrdersSubmitted("trader-1");
+		manager.incrementOrdersSubmitted("trader-1");
+
+		expect(manager.getPortfolio("trader-1")?.ordersSubmitted).toBe(2);
+	});
+
+	it("throws when incrementing ordersSubmitted for a participant that was never created", () => {
+		const manager = new PortfolioManager();
+
+		expect(() => manager.incrementOrdersSubmitted("unknown")).toThrow(
+			"Portfolio for participant unknown not found",
+		);
 	});
 
 	it("applies a trade by debiting the buyer, crediting the seller, and updating inventory on both sides", () => {
@@ -123,6 +142,7 @@ describe("PortfolioManager", () => {
 			price: 100,
 			quantity: 2,
 		});
+		manager.incrementOrdersSubmitted("buyer-1");
 		manager.applyTrade(secondReport.trades[0]);
 
 		expect(manager.getPortfolio("buyer-1")).toMatchObject({ cash: 10000 - 100 * 5, inventory: 5 });
@@ -171,6 +191,7 @@ describe("PortfolioManager", () => {
 			price: 100,
 			quantity: 4,
 		});
+		manager.incrementOrdersSubmitted("trader-1");
 		expect(report.trades).toHaveLength(1);
 		manager.applyTrade(report.trades[0]);
 
@@ -180,6 +201,7 @@ describe("PortfolioManager", () => {
 
 		expect(manager.getPortfolioSnapshot("trader-1", bookSnapshot)).toEqual({
 			participantId: "trader-1",
+			ordersSubmitted: 1,
 			cash: expectedCash,
 			inventory: 4,
 			midPrice,
@@ -259,6 +281,7 @@ describe("PortfolioManager", () => {
 
 		expect(portfolio).toEqual({
 			participantId: "trader-1",
+			ordersSubmitted: 0,
 			initialCash: 25000,
 			cash: 25000,
 			inventory: 0,

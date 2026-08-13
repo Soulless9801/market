@@ -4,6 +4,7 @@ import type { OrderBookSnapshot } from "../../engine/orders";
 
 export interface Portfolio {
     participantId: string;
+    ordersSubmitted: number;
     initialCash: number;
     cash: number;
     inventory: number; // single market for now
@@ -11,6 +12,7 @@ export interface Portfolio {
 
 export interface PortfolioSnapshot {
     participantId: string;
+    ordersSubmitted: number;
     cash: number;
     inventory: number;
     midPrice: number;
@@ -30,6 +32,7 @@ export class PortfolioManager {
         }
         const portfolio: Portfolio = {
             participantId,
+            ordersSubmitted: 0,
             initialCash,
             cash: initialCash,
             inventory: 0,
@@ -40,6 +43,14 @@ export class PortfolioManager {
 
     getPortfolio(participantId: string): Portfolio | undefined {
         return this.portfolios.get(participantId);
+    }
+
+    incrementOrdersSubmitted(participantId: string): void {
+        const portfolio = this.portfolios.get(participantId);
+        if (!portfolio) {
+            throw new Error(`Portfolio for participant ${participantId} not found`);
+        }
+        portfolio.ordersSubmitted += 1;
     }
 
     applyTrade(trade: TradeEvent): void {
@@ -72,6 +83,7 @@ export class PortfolioManager {
 
         return {
             participantId: portfolio.participantId,
+            ordersSubmitted: portfolio.ordersSubmitted,
             cash: portfolio.cash,
             inventory: portfolio.inventory,
             midPrice: midPrice,

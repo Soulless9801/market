@@ -246,6 +246,8 @@ function MarketMonitor() {
 									<div style={{ fontWeight: 600 }}>{participant.agentId}</div>
 									<div style={{ marginTop: "4px", color: "#86a0c9", fontSize: "14px" }}>PNL: {participant.pnl}</div>
 									<div style={{ color: "#86a0c9", fontSize: "14px" }}>Inventory: {participant.inventory}</div>
+									<div style={{ color: "#86a0c9", fontSize: "14px" }}>Orders Submitted: {participant.ordersSubmitted}</div>
+									<div style={{ color: "#86a0c9", fontSize: "14px" }}>Cash: {participant.cash}</div>
 								</div>
 							))}
 						</div>
