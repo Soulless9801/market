@@ -3,7 +3,7 @@ import type { CSSProperties, ReactElement } from "react";
 
 import type { OrderBookSnapshot } from "../engine";
 import { buildDefaultAgents, Simulator } from "../simulation";
-import { buildMarketViewModel, type MarketViewModel } from "./marketViewModel";
+import { buildMarketViewModel, type MarketViewModel } from "./ViewModel";
 import { calculateMidPrice } from "../engine";
 
 const DEFAULT_SEED = 7;

@@ -1,6 +1,12 @@
-import { Exchange, type ExecutionReport, type OrderBookSnapshot, type TradeEvent } from "../../engine";
+import { calculateRecentOrderImbalance, Exchange } from "../../engine";
+import type { 
+	ExecutionReport,
+	OrderBookSnapshot, 
+	OrderImbalance, 
+	TradeEvent 
+} from "../../engine";
 import type { SimulationEvent } from "../events";
-import type { SimulationContext, TraderAgent } from "../agents";
+import type { TraderAgent } from "../agents";
 import { PortfolioManager } from "../portfolio";
 import type { PortfolioSnapshot } from "../portfolio";
 
@@ -10,12 +16,6 @@ export interface SimulatorOptions {
 	referencePrice?: number;
 }
 
-// export interface ParticipantStats {
-// 	agentId: string;
-// 	ordersSubmitted: number;
-// 	inventory: number;
-// }
-
 export interface StepResult {
 	step: number;
 	reports: ExecutionReport[];
@@ -23,10 +23,33 @@ export interface StepResult {
 	trades: TradeEvent[];
 }
 
+export interface SimulationContext {
+	clock: number;
+	snapshot: OrderBookSnapshot;
+	midPrice: number;
+	lastTradePrice?: number;
+	tradeCount: number;
+}
+
+export interface ObservableSimulatorContext {
+	clock: number;
+
+	midPrice: number;
+	spread: number;
+
+	orderBook: OrderBookSnapshot;
+
+	recentTrades: TradeEvent[];
+	recentMidPriceSeries: number[];
+
+	orderImbalance: OrderImbalance;
+}
+
 export class Simulator {
 	private exchange: Exchange;
 	private readonly agents: TraderAgent[];
 	private readonly referencePrice: number;
+	private readonly midPriceHistory: number[] = [];
 	private readonly events: SimulationEvent[] = [];
 	// private readonly participantStats = new Map<string, ParticipantStats>();
 	private readonly orderParticipants = new Map<string, string>();
@@ -44,6 +67,8 @@ export class Simulator {
 	runStep(): StepResult {
 		this.clock += 1;
 		const context = this.createContext();
+		this.midPriceHistory.push(context.midPrice);
+		const observableContext = this.getObservableContext();
 		const reports: ExecutionReport[] = [];
 		const stepEvents: SimulationEvent[] = [];
 
@@ -54,7 +79,7 @@ export class Simulator {
 				agentId: agent.id,
 			});
 
-			const orders = agent.step(context);
+			const orders = agent.step(observableContext);
 			for (const order of orders) {
 				const report = this.exchange.submitOrder(order);
 				this.portfolioManager.incrementOrdersSubmitted(agent.id);
@@ -105,6 +130,7 @@ export class Simulator {
 		this.exchange = new Exchange();
 		this.events.splice(0, this.events.length);
 		this.portfolioManager.reset();
+		this.midPriceHistory.splice(0, this.midPriceHistory.length);
 		// this.participantStats.clear();
 		this.orderParticipants.clear();
 		this.clock = 0;
@@ -127,6 +153,10 @@ export class Simulator {
 		return this.exchange.getTradeHistory();
 	}
 
+	getMidPriceHistory(): number[] {
+		return [...this.midPriceHistory];
+	}
+
 	getParticpantPortfolios(): PortfolioSnapshot[] {
 		const snapshot = this.exchange.getOrderBookSnapshot();
 		return this.agents.map((agent) => {
@@ -138,10 +168,6 @@ export class Simulator {
 		});
 	}
 
-	// getParticipantStats(): ParticipantStats[] {
-	// 	return Array.from(this.participantStats.values());
-	// }
-
 	getClock(): number {
 		return this.clock;
 	}
@@ -151,24 +177,6 @@ export class Simulator {
 			this.portfolioManager.createPortfolio(agent.id, 100000);
 		}
 	}
-
-	// private initializeParticipantStats(): void {
-	// 	for (const agent of this.agents) {
-	// 		this.participantStats.set(agent.id, {
-	// 			agentId: agent.id,
-	// 			ordersSubmitted: 0,
-	// 			inventory: 0,
-	// 		});
-	// 	}
-	// }
-
-	// private recordOrderSubmission(agentId: string, orderId: string): void {
-	// 	this.orderParticipants.set(orderId, agentId);
-	// 	const participant = this.participantStats.get(agentId);
-	// 	if (participant) {
-	// 		participant.ordersSubmitted += 1;
-	// 	}
-	// }
 
 	private createContext(): SimulationContext {
 		const snapshot = this.exchange.getOrderBookSnapshot();
@@ -181,6 +189,36 @@ export class Simulator {
 			midPrice,
 			lastTradePrice: lastTrade?.price,
 			tradeCount: trades.length,
+		};
+	}
+
+	getObservableContext(
+		tradeHistoryLimit = 20,
+		priceHistoryLimit = 20,
+	): ObservableSimulatorContext {
+		const orderBook = this.exchange.getOrderBookSnapshot();
+		const tradeHistory = this.exchange.getTradeHistory();
+
+		const midPrice = this.calculateMidPrice(orderBook);
+
+		const bestBid = orderBook.bids[0]?.price;
+		const bestAsk = orderBook.asks[0]?.price;
+
+		const spread =
+			bestBid !== undefined && bestAsk !== undefined
+				? bestAsk - bestBid
+				: 0;
+
+		return {
+			clock: this.clock,
+			midPrice,
+			spread,
+			orderBook,
+			recentTrades: tradeHistory.slice(-tradeHistoryLimit),
+			recentMidPriceSeries:
+				this.midPriceHistory.slice(-priceHistoryLimit),
+			orderImbalance:
+				calculateRecentOrderImbalance(orderBook),
 		};
 	}
 

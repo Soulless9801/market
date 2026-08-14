@@ -14,6 +14,7 @@ src/
 ├── simulation/
 │   ├── agents/
 │   ├── events/
+│   ├── portfolio/
 │   └── simulator/
 ├── analytics/
 ├── ui/

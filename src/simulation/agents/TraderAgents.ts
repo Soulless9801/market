@@ -1,20 +1,13 @@
 import type { NewOrderRequest, OrderBookSnapshot } from "../../engine";
+import type { ObservableSimulatorContext } from "../simulator";
 
 export type AgentSideBias = "BUY" | "SELL" | "RANDOM";
 // Passive orders provide liquidity, while aggressive orders try to consume existing liquidity.
 export type ExecutionStyle = "PASSIVE" | "AGGRESSIVE" | "RANDOM";
 
-export interface SimulationContext {
-	clock: number;
-	snapshot: OrderBookSnapshot;
-	midPrice: number;
-	lastTradePrice?: number;
-	tradeCount: number;
-}
-
 export interface TraderAgent {
 	id: string;
-	step(context: SimulationContext): NewOrderRequest[];
+	step(context: ObservableSimulatorContext): NewOrderRequest[];
 }
 
 export interface MarketMakerAgentOptions {
@@ -96,7 +89,7 @@ export class MarketMakerAgent implements TraderAgent {
 		this.quantity = Math.max(1, options.quantity);
 	}
 
-	step(context: SimulationContext): NewOrderRequest[] {
+	step(context: ObservableSimulatorContext): NewOrderRequest[] {
 		const midPrice = context.midPrice ?? this.referencePrice;
 		const halfSpread = this.spread / 2;
 		const bidPrice = Math.max(1, midPrice - halfSpread);
@@ -142,11 +135,11 @@ export class RetailTraderAgent implements TraderAgent {
 		this.random = new SeededRandom(options.seed);
 	}
 
-	step(context: SimulationContext): NewOrderRequest[] {
+	step(context: ObservableSimulatorContext): NewOrderRequest[] {
 		const midPrice = context.midPrice ?? this.referencePrice;
 		const side = this.resolveSide();
 		const executionStyle = this.resolveExecutionStyle();
-		const price = this.calculateOrderPrice(side, executionStyle, midPrice, context.snapshot);
+		const price = this.calculateOrderPrice(side, executionStyle, midPrice, context.orderBook);
 		const quantity = Math.max(1, Math.round(this.quantity + this.random.next() * 3));
 
 		return [
