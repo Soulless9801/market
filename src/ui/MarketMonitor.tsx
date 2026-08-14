@@ -135,7 +135,6 @@ function MarketMonitor() {
 							{isRunning ? "Pause" : "Start"}
 						</button>
 						<button onClick={resetSimulation} style={buttonStyle}>Reset</button>
-						<div style={{ fontSize: "13px", color: "#86a0c9" }}>Composition: 1 MM · 2 retail</div>
 						<label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px", color: "#86a0c9" }}>
 							Seed
 							<input

@@ -23,26 +23,26 @@ export interface StepResult {
 	trades: TradeEvent[];
 }
 
-export interface SimulationContext {
-	clock: number;
-	snapshot: OrderBookSnapshot;
-	midPrice: number;
-	lastTradePrice?: number;
-	tradeCount: number;
-}
+// export interface SimulationContext {
+// 	clock: number;
+// 	snapshot: OrderBookSnapshot;
+// 	midPrice: number;
+// 	lastTradePrice?: number;
+// 	tradeCount: number;
+// }
 
 export interface ObservableSimulatorContext {
 	clock: number;
-
 	midPrice: number;
 	spread: number;
-
 	orderBook: OrderBookSnapshot;
-
 	recentTrades: TradeEvent[];
 	recentMidPriceSeries: number[];
-
 	orderImbalance: OrderImbalance;
+}
+
+export interface AgentSimulatorContext extends ObservableSimulatorContext {
+	portfolio: PortfolioSnapshot;
 }
 
 export class Simulator {
@@ -66,9 +66,8 @@ export class Simulator {
 
 	runStep(): StepResult {
 		this.clock += 1;
-		const context = this.createContext();
-		this.midPriceHistory.push(context.midPrice);
 		const observableContext = this.getObservableContext();
+		this.midPriceHistory.push(observableContext.midPrice);
 		const reports: ExecutionReport[] = [];
 		const stepEvents: SimulationEvent[] = [];
 
@@ -78,8 +77,9 @@ export class Simulator {
 				timestamp: this.clock,
 				agentId: agent.id,
 			});
+			const agentContext = this.getAgentContext(agent.id, observableContext);
 
-			const orders = agent.step(observableContext);
+			const orders = agent.step(agentContext);
 			for (const order of orders) {
 				const report = this.exchange.submitOrder(order);
 				this.portfolioManager.incrementOrdersSubmitted(agent.id);
@@ -178,19 +178,19 @@ export class Simulator {
 		}
 	}
 
-	private createContext(): SimulationContext {
-		const snapshot = this.exchange.getOrderBookSnapshot();
-		const trades = this.exchange.getTradeHistory();
-		const lastTrade = trades[trades.length - 1];
-		const midPrice = this.calculateMidPrice(snapshot);
-		return {
-			clock: this.clock,
-			snapshot,
-			midPrice,
-			lastTradePrice: lastTrade?.price,
-			tradeCount: trades.length,
-		};
-	}
+	// private createContext(): SimulationContext {
+	// 	const snapshot = this.exchange.getOrderBookSnapshot();
+	// 	const trades = this.exchange.getTradeHistory();
+	// 	const lastTrade = trades[trades.length - 1];
+	// 	const midPrice = this.calculateMidPrice(snapshot);
+	// 	return {
+	// 		clock: this.clock,
+	// 		snapshot,
+	// 		midPrice,
+	// 		lastTradePrice: lastTrade?.price,
+	// 		tradeCount: trades.length,
+	// 	};
+	// }
 
 	getObservableContext(
 		tradeHistoryLimit = 20,
@@ -229,5 +229,16 @@ export class Simulator {
 			return (bestBid + bestAsk) / 2;
 		}
 		return this.referencePrice;
+	}
+
+	getAgentContext(agentId: string, observableContext: ObservableSimulatorContext): AgentSimulatorContext {
+		const portfolioSnapshot = this.portfolioManager.getPortfolioSnapshot(agentId, observableContext.orderBook);
+		if (!portfolioSnapshot) {
+			throw new Error(`Portfolio snapshot for agent ${agentId} not found`);
+		}
+		return {
+			...observableContext,
+			portfolio: portfolioSnapshot,
+		};
 	}
 }

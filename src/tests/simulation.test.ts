@@ -6,8 +6,9 @@ import {
 	MarketMakerAgent,
 	RetailTraderAgent,
 	Simulator,
+	PortfolioManager,
 } from "../simulation";
-import type { ObservableSimulatorContext } from "../simulation";
+import type { ObservableSimulatorContext, AgentSimulatorContext } from "../simulation";
 
 function createObservableContext(
 	exchange: Exchange,
@@ -63,6 +64,24 @@ function createObservableContext(
 	};
 }
 
+function createAgentContext(
+	agentId: string,
+	observableContext: ObservableSimulatorContext,
+	portfolioManager: PortfolioManager,
+	overrides: Partial<AgentSimulatorContext> = {},
+): AgentSimulatorContext {
+	const portfolioSnapshot = portfolioManager.getPortfolioSnapshot(agentId, observableContext.orderBook);
+	if (!portfolioSnapshot) {
+		throw new Error(`Portfolio snapshot for agent ${agentId} not found`);
+	}
+	return {
+		portfolio: portfolioSnapshot,
+		...observableContext,
+		...overrides,
+	}
+}
+
+
 describe("simulation", () => {
 	it("builds the default market composition with one market maker and three retail traders", () => {
 		const agents = buildDefaultAgents(7, 100);
@@ -90,12 +109,17 @@ describe("simulation", () => {
 			quantity: 10,
 		});
 
+		const portfolioManager = new PortfolioManager();
+		portfolioManager.createPortfolio("mm-1", 100000);
+
 		const context = createObservableContext(exchange, {
 			midPrice: 100,
 			spread: 2,
 		});
 
-		const orders = agent.step(context);
+		const agentContext = createAgentContext("mm-1", context, portfolioManager);
+
+		const orders = agent.step(agentContext);
 
 		expect(orders).toHaveLength(2);
 
@@ -204,12 +228,17 @@ describe("simulation", () => {
 			executionStyle: "PASSIVE",
 		});
 
+		const portfolioManager = new PortfolioManager();
+		portfolioManager.createPortfolio("retail-1", 100000);
+
 		const context = createObservableContext(exchange, {
 			midPrice: 100,
 			spread: 1,
 		});
 
-		const [order] = agent.step(context);
+		const agentContext = createAgentContext("retail-1", context, portfolioManager);
+
+		const [order] = agent.step(agentContext);
 		const report = exchange.submitOrder(order);
 
 		expect(order.type).toBe("LIMIT");
@@ -257,7 +286,12 @@ describe("simulation", () => {
 			spread: 1,
 		});
 
-		const [order] = agent.step(context);
+		const portfolioManager = new PortfolioManager();
+		portfolioManager.createPortfolio("retail-2", 100000);
+
+		const agentContext = createAgentContext("retail-2", context, portfolioManager);
+
+		const [order] = agent.step(agentContext);
 		const report = exchange.submitOrder(order);
 
 		expect(order.type).toBe("LIMIT");
@@ -299,7 +333,12 @@ describe("simulation", () => {
 			spread: 0.5,
 		});
 
-		const [order] = agent.step(context);
+		const portfolioManager = new PortfolioManager();
+		portfolioManager.createPortfolio("retail-3", 100000);
+
+		const agentContext = createAgentContext("retail-3", context, portfolioManager);
+
+		const [order] = agent.step(agentContext);
 		const report = exchange.submitOrder(order);
 
 		expect(report.filledQuantity).toBeGreaterThan(0);
@@ -333,7 +372,12 @@ describe("simulation", () => {
 			spread: 0.5,
 		});
 
-		const [order] = agent.step(context);
+		const portfolioManager = new PortfolioManager();
+		portfolioManager.createPortfolio("retail-4", 100000);
+
+		const agentContext = createAgentContext("retail-4", context, portfolioManager);
+
+		const [order] = agent.step(agentContext);
 		const report = exchange.submitOrder(order);
 
 		expect(report.filledQuantity).toBeGreaterThan(0);
@@ -347,24 +391,33 @@ describe("simulation", () => {
 			midPrice: 100,
 			spread: 0,
 		});
+		const portfolioManager = new PortfolioManager();
+		portfolioManager.createPortfolio("retail-5", 100000);
+		portfolioManager.createPortfolio("retail-6", 100000);
 
-		const first = new RetailTraderAgent("retail-5", {
+		const agent1 = new RetailTraderAgent("retail-5", {
 			referencePrice: 100,
 			spread: 2,
 			quantity: 8,
 			seed: 19,
 			bias: "RANDOM",
 			executionStyle: "RANDOM",
-		}).step(context);
+		});
+		const agentContext1 = createAgentContext("retail-5", context, portfolioManager);
 
-		const second = new RetailTraderAgent("retail-6", {
+		const first = agent1.step(agentContext1);
+
+		const agent2 = new RetailTraderAgent("retail-6", {
 			referencePrice: 100,
 			spread: 2,
 			quantity: 8,
 			seed: 19,
 			bias: "RANDOM",
 			executionStyle: "RANDOM",
-		}).step(context);
+		});
+		const agentContext2 = createAgentContext("retail-6", context, portfolioManager);
+
+		const second = agent2.step(agentContext2);
 
 		expect(first[0].type).toBe("LIMIT");
 		expect(second[0].type).toBe("LIMIT");
@@ -390,15 +443,20 @@ describe("simulation", () => {
 			midPrice: 100,
 		});
 
-		const sides = [1, 682].map((seed) =>
-			new RetailTraderAgent(`retail-${seed}`, {
-				referencePrice: 100,
-				spread: 2,
-				quantity: 8,
-				seed,
-				bias: "RANDOM",
-				executionStyle: "RANDOM",
-			}).step(context)[0].side,
+		const portfolioManager = new PortfolioManager();
+
+		const sides = [1, 682].map((seed) => {
+				portfolioManager.createPortfolio(`retail-${seed}`, 100000);
+				const agentContext = createAgentContext(`retail-${seed}`, context, portfolioManager);
+				return new RetailTraderAgent(`retail-${seed}`, {
+					referencePrice: 100,
+					spread: 2,
+					quantity: 8,
+					seed,
+					bias: "RANDOM",
+					executionStyle: "RANDOM",
+				}).step(agentContext)[0].side;
+			}
 		);
 
 		expect(sides).toContain("BUY");
