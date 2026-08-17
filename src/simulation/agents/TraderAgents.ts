@@ -1,5 +1,6 @@
 import type { NewOrderRequest, OrderBookSnapshot } from "../../engine";
 import type { AgentSimulatorContext } from "../simulator";
+import { MLP } from "../ml";
 
 export type AgentSideBias = "BUY" | "SELL" | "RANDOM";
 // Passive orders provide liquidity, while aggressive orders try to consume existing liquidity.
@@ -106,31 +107,38 @@ export function buildDefaultAgents(seed: number, referencePrice = 100): TraderAg
 			bias: "RANDOM",
 			executionStyle: "RANDOM",
 		}),
-		new MomentumTraderAgent("momentum-1", {
+		// new MomentumTraderAgent("momentum-1", {
+		// 	referencePrice,
+		// 	spread: 2,
+		// 	quantity: 5,
+		// 	seed: seed + 3,
+		// 	lookback: 5,
+		// 	momentumThreshold: 0.5,
+		// 	maxPriceOffset: 1,
+		// }),
+		// new MeanReversionTraderAgent("mean-reversion-1", {
+		// 	referencePrice,
+		// 	spread: 2,
+		// 	quantity: 5,
+		// 	seed: seed + 4,
+		// 	lookback: 5,
+		// 	deviationThreshold: 0.5,
+		// 	maxPriceOffset: 1,
+		// }),
+		// new ImbalanceTraderAgent("imbalance-1", {
+		// 	referencePrice,
+		// 	spread: 2,
+		// 	quantity: 5,
+		// 	seed: seed + 5,
+		// 	buyThreshold: 0.65,
+		// 	sellThreshold: 0.35,
+		// 	maxPriceOffset: 1,
+		// }),
+		new MLTraderAgent("ml-1", {
 			referencePrice,
 			spread: 2,
 			quantity: 5,
-			seed: seed + 3,
-			lookback: 5,
-			momentumThreshold: 0.5,
-			maxPriceOffset: 1,
-		}),
-		new MeanReversionTraderAgent("mean-reversion-1", {
-			referencePrice,
-			spread: 2,
-			quantity: 5,
-			seed: seed + 4,
-			lookback: 5,
-			deviationThreshold: 0.5,
-			maxPriceOffset: 1,
-		}),
-		new ImbalanceTraderAgent("imbalance-1", {
-			referencePrice,
-			spread: 2,
-			quantity: 5,
-			seed: seed + 5,
-			buyThreshold: 0.65,
-			sellThreshold: 0.35,
+			seed: seed + 6,
 			maxPriceOffset: 1,
 		}),
 	];
@@ -712,5 +720,74 @@ export class ImbalanceTraderAgent
 					this.spread / 2 -
 					offset,
 		);
+	}
+}
+
+export type MLTraderAgentOptions = ImbalanceTraderAgentOptions; // placeholder for now, can be extended later
+
+export class MLTraderAgent implements TraderAgent {
+	readonly id: string;
+	// private readonly referencePrice: number;
+	private readonly spread: number;
+	private readonly quantity: number;
+	private readonly executionStyle: ExecutionStyle;
+	private readonly maxPriceOffset: number;
+	private readonly random: SeededRandom;
+
+	constructor(id: string, options: MLTraderAgentOptions) {
+		this.id = id;
+		// this.referencePrice = options.referencePrice;
+		this.spread = Math.max(1, options.spread);
+		this.quantity = Math.max(1, options.quantity);
+		this.executionStyle = options.executionStyle ?? "AGGRESSIVE";
+		this.maxPriceOffset = Math.max(0, options.maxPriceOffset ?? 1);
+		this.random = new SeededRandom(options.seed);
+	}
+
+	step(context: AgentSimulatorContext): NewOrderRequest[] {
+		const side = this.resolveSide(context);
+		const price = this.calculateOrderPrice(side, context);
+		const quantity = Math.max(1, Math.round(this.quantity + this.random.next() * 3));
+
+		return [
+			{
+				participantId: this.id,
+				side,
+				type: "LIMIT",
+				quantity,
+				price,
+			},
+		];
+	}
+
+	private resolveSide(context: AgentSimulatorContext): "BUY" | "SELL" {
+		const model = new MLP();
+		const input = [
+			context.recentMidPriceSeries[context.recentMidPriceSeries.length - 1] - context.recentMidPriceSeries[context.recentMidPriceSeries.length - 2], // short return
+			context.recentMidPriceSeries[context.recentMidPriceSeries.length - 1] - context.recentMidPriceSeries[0], // long return
+			context.spread, // spread
+			context.orderImbalance.imbalance, // imbalance
+		];
+		const output = model.predict(input);
+		return output[0] > output[1] ? "BUY" : "SELL";
+	}
+
+	private calculateOrderPrice(side: "BUY" | "SELL", context: AgentSimulatorContext): number {
+		const bestBid = context.orderBook.bids[0]?.price;
+		const bestAsk = context.orderBook.asks[0]?.price;
+		const offset = this.random.next() * this.maxPriceOffset;
+
+		if (this.executionStyle === "PASSIVE") {
+			if (side === "BUY") {
+				return Math.max(1, (bestBid ?? context.midPrice - this.spread / 2) - offset);
+			}
+			return Math.max(1, (bestAsk ?? context.midPrice + this.spread / 2) + offset);
+		}
+
+		if (side === "BUY") {
+			return bestAsk ?? context.midPrice + this.spread / 2 + offset;
+		}
+
+		return Math.max(1, bestBid ?? context.midPrice - this.spread / 2 - offset);
 	}
 }
