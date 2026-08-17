@@ -30,7 +30,7 @@ function useSimulationController() {
 		simulatorRef.current = simulator;
 		return buildMarketViewModel(
 			simulator.getOrderBookSnapshot(),
-			simulator.getTradeHistory(),
+			simulator.getLimitedTradeHistory(),
 			simulator.getParticpantPortfolios(),
 			simulator.getClock(),
 			[DEFAULT_REFERENCE_PRICE],
@@ -44,7 +44,7 @@ function useSimulationController() {
 		setViewModel(
 			buildMarketViewModel(
 				initialSnapshot,
-				simulator.getTradeHistory(),
+				simulator.getLimitedTradeHistory(),
 				simulator.getParticpantPortfolios(),
 				simulator.getClock(),
 				[getMidPrice(initialSnapshot)],
@@ -73,7 +73,7 @@ function useSimulationController() {
 			setViewModel((previous) =>
 				buildMarketViewModel(
 					snapshot,
-					simulator.getTradeHistory(),
+					simulator.getLimitedTradeHistory(),
 					simulator.getParticpantPortfolios(),
 					simulator.getClock(),
 					[...previous.midPriceSeries.slice(-39), nextMidPrice],

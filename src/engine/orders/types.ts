@@ -56,6 +56,14 @@ export interface TradeEvent {
 	timestamp: number;
 }
 
+export interface LimitedTradeEvent {
+	tradeId: string;
+	price: number;
+	quantity: number;
+	aggressorSide: Side;
+	timestamp: number;
+}
+
 export interface ExecutionReport {
 	orderId: string;
 	status: OrderStatus;

@@ -1,6 +1,7 @@
 import { calculateRecentOrderImbalance, Exchange } from "../../engine";
 import type { 
 	ExecutionReport,
+	LimitedTradeEvent,
 	OrderBookSnapshot, 
 	OrderImbalance, 
 	TradeEvent 
@@ -36,7 +37,7 @@ export interface ObservableSimulatorContext {
 	midPrice: number;
 	spread: number;
 	orderBook: OrderBookSnapshot;
-	recentTrades: TradeEvent[];
+	recentTrades: LimitedTradeEvent[];
 	recentMidPriceSeries: number[];
 	orderImbalance: OrderImbalance;
 }
@@ -149,8 +150,18 @@ export class Simulator {
 		return this.exchange.getOrderBookSnapshot(depth);
 	}
 
-	getTradeHistory(): TradeEvent[] {
+	private getTradeHistory(): TradeEvent[] {
 		return this.exchange.getTradeHistory();
+	}
+
+	getLimitedTradeHistory(depth = 10): LimitedTradeEvent[] {
+		return this.getTradeHistory().slice(-depth).map((trade) => ({
+			tradeId: trade.tradeId,
+			timestamp: trade.timestamp,
+			price: trade.price,
+			quantity: trade.quantity,
+			aggressorSide: trade.aggressorSide,
+		}));
 	}
 
 	getMidPriceHistory(): number[] {
@@ -197,7 +208,6 @@ export class Simulator {
 		priceHistoryLimit = 20,
 	): ObservableSimulatorContext {
 		const orderBook = this.exchange.getOrderBookSnapshot();
-		const tradeHistory = this.exchange.getTradeHistory();
 
 		const midPrice = this.calculateMidPrice(orderBook);
 
@@ -214,11 +224,9 @@ export class Simulator {
 			midPrice,
 			spread,
 			orderBook,
-			recentTrades: tradeHistory.slice(-tradeHistoryLimit),
-			recentMidPriceSeries:
-				this.midPriceHistory.slice(-priceHistoryLimit),
-			orderImbalance:
-				calculateRecentOrderImbalance(orderBook),
+			recentTrades: this.getLimitedTradeHistory(tradeHistoryLimit),
+			recentMidPriceSeries: this.midPriceHistory.slice(-priceHistoryLimit),
+			orderImbalance: calculateRecentOrderImbalance(orderBook),
 		};
 	}
 

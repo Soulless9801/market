@@ -26,6 +26,39 @@ export interface RetailTraderAgentOptions {
 	executionStyle?: ExecutionStyle;
 }
 
+export interface MomentumTraderAgentOptions {
+	referencePrice: number;
+	spread: number;
+	quantity: number;
+	seed: number;
+	lookback?: number;
+	momentumThreshold?: number;
+	executionStyle?: ExecutionStyle;
+	maxPriceOffset?: number;
+}
+
+export interface MeanReversionTraderAgentOptions {
+	referencePrice: number;
+	spread: number;
+	quantity: number;
+	seed: number;
+	lookback?: number;
+	deviationThreshold?: number;
+	executionStyle?: ExecutionStyle;
+	maxPriceOffset?: number;
+}
+
+export interface ImbalanceTraderAgentOptions {
+	referencePrice: number;
+	spread: number;
+	quantity: number;
+	seed: number;
+	buyThreshold?: number;
+	sellThreshold?: number;
+	executionStyle?: ExecutionStyle;
+	maxPriceOffset?: number;
+}
+
 class SeededRandom {
 	private state: number;
 
@@ -73,33 +106,33 @@ export function buildDefaultAgents(seed: number, referencePrice = 100): TraderAg
 			bias: "RANDOM",
 			executionStyle: "RANDOM",
 		}),
-		// new MomentumTraderAgent("momentum-1", {
-		// 	referencePrice,
-		// 	spread: 2,
-		// 	quantity: 5,
-		// 	seed: seed + 3,
-		// 	lookback: 5,
-		// 	momentumThreshold: 0.5,
-		// 	maxPriceOffset: 1,
-		// }),
-		// new MeanReversionTraderAgent("mean-reversion-1", {
-		// 	referencePrice,
-		// 	spread: 2,
-		// 	quantity: 5,
-		// 	seed: seed + 4,
-		// 	lookback: 5,
-		// 	deviationThreshold: 0.5,
-		// 	maxPriceOffset: 1,
-		// }),
-		// new ImbalanceTraderAgent("imbalance-1", {
-		// 	referencePrice,
-		// 	spread: 2,
-		// 	quantity: 5,
-		// 	seed: seed + 5,
-		// 	buyThreshold: 0.65,
-		// 	sellThreshold: 0.35,
-		// 	maxPriceOffset: 1,
-		// }),
+		new MomentumTraderAgent("momentum-1", {
+			referencePrice,
+			spread: 2,
+			quantity: 5,
+			seed: seed + 3,
+			lookback: 5,
+			momentumThreshold: 0.5,
+			maxPriceOffset: 1,
+		}),
+		new MeanReversionTraderAgent("mean-reversion-1", {
+			referencePrice,
+			spread: 2,
+			quantity: 5,
+			seed: seed + 4,
+			lookback: 5,
+			deviationThreshold: 0.5,
+			maxPriceOffset: 1,
+		}),
+		new ImbalanceTraderAgent("imbalance-1", {
+			referencePrice,
+			spread: 2,
+			quantity: 5,
+			seed: seed + 5,
+			buyThreshold: 0.65,
+			sellThreshold: 0.35,
+			maxPriceOffset: 1,
+		}),
 	];
 }
 
@@ -226,18 +259,6 @@ export class RetailTraderAgent implements TraderAgent {
 		}
 		return Math.max(1, midPrice - halfSpread - priceOffset);
 	}
-}
-
-
-export interface MomentumTraderAgentOptions {
-	referencePrice: number;
-	spread: number;
-	quantity: number;
-	seed: number;
-	lookback?: number;
-	momentumThreshold?: number;
-	executionStyle?: ExecutionStyle;
-	maxPriceOffset?: number;
 }
 
 export class MomentumTraderAgent implements TraderAgent {
@@ -381,17 +402,6 @@ export class MomentumTraderAgent implements TraderAgent {
 					offset,
 		);
 	}
-}
-
-export interface MeanReversionTraderAgentOptions {
-	referencePrice: number;
-	spread: number;
-	quantity: number;
-	seed: number;
-	lookback?: number;
-	deviationThreshold?: number;
-	executionStyle?: ExecutionStyle;
-	maxPriceOffset?: number;
 }
 
 export class MeanReversionTraderAgent
@@ -556,17 +566,6 @@ export class MeanReversionTraderAgent
 					offset,
 		);
 	}
-}
-
-export interface ImbalanceTraderAgentOptions {
-	referencePrice: number;
-	spread: number;
-	quantity: number;
-	seed: number;
-	buyThreshold?: number;
-	sellThreshold?: number;
-	executionStyle?: ExecutionStyle;
-	maxPriceOffset?: number;
 }
 
 export class ImbalanceTraderAgent

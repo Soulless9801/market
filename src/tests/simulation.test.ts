@@ -7,6 +7,9 @@ import {
 	RetailTraderAgent,
 	Simulator,
 	PortfolioManager,
+	MomentumTraderAgent,
+	ImbalanceTraderAgent,
+	MeanReversionTraderAgent,
 } from "../simulation";
 import type { ObservableSimulatorContext, AgentSimulatorContext } from "../simulation";
 
@@ -86,17 +89,23 @@ describe("simulation", () => {
 	it("builds the default market composition with one market maker and three retail traders", () => {
 		const agents = buildDefaultAgents(7, 100);
 
-		expect(agents).toHaveLength(4);
+		expect(agents).toHaveLength(7);
 		expect(agents[0]).toBeInstanceOf(MarketMakerAgent);
 		expect(agents[1]).toBeInstanceOf(RetailTraderAgent);
 		expect(agents[2]).toBeInstanceOf(RetailTraderAgent);
 		expect(agents[3]).toBeInstanceOf(RetailTraderAgent);
+		expect(agents[4]).toBeInstanceOf(MomentumTraderAgent);
+		expect(agents[5]).toBeInstanceOf(MeanReversionTraderAgent);
+		expect(agents[6]).toBeInstanceOf(ImbalanceTraderAgent);
 
 		expect(agents.map((agent) => agent.id)).toEqual([
 			"mm-1",
 			"retail-1",
 			"retail-2",
 			"retail-3",
+			"momentum-1",
+			"mean-reversion-1",
+			"imbalance-1"
 		]);
 	});
 
@@ -188,7 +197,7 @@ describe("simulation", () => {
 		).toBe(true);
 
 		expect(
-			simulator.getTradeHistory().length,
+			simulator.getLimitedTradeHistory().length,
 		).toBeGreaterThanOrEqual(1);
 
 		expect(simulator.getEvents()).toEqual(
@@ -479,7 +488,7 @@ describe("simulation", () => {
 		simulator.reset();
 
 		expect(simulator.getClock()).toBe(0);
-		expect(simulator.getTradeHistory()).toHaveLength(0);
+		expect(simulator.getLimitedTradeHistory()).toHaveLength(0);
 		expect(simulator.getEvents()).toHaveLength(0);
 
 		expect(
@@ -742,7 +751,7 @@ describe("simulation", () => {
 
 		simulator.runSteps(20);
 
-		const fullHistory = simulator.getTradeHistory();
+		const fullHistory = simulator.getLimitedTradeHistory();
 
 		const context = simulator.getObservableContext(
 			5,
@@ -789,7 +798,7 @@ describe("simulation", () => {
 		simulator.runSteps(50);
 
 		const fullTradeHistory =
-			simulator.getTradeHistory();
+			simulator.getLimitedTradeHistory();
 
 		const context = simulator.getObservableContext(
 			5,
@@ -825,7 +834,7 @@ describe("simulation", () => {
 		).toBeGreaterThan(0);
 
 		expect(
-			simulator.getTradeHistory().length,
+			simulator.getLimitedTradeHistory().length,
 		).toBeGreaterThan(0);
 
 		simulator.reset();
@@ -840,7 +849,7 @@ describe("simulation", () => {
 		).toHaveLength(0);
 
 		expect(
-			simulator.getTradeHistory(),
+			simulator.getLimitedTradeHistory(),
 		).toHaveLength(0);
 	});
 });
