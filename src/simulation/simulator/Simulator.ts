@@ -150,7 +150,7 @@ export class Simulator {
 		return this.exchange.getOrderBookSnapshot(depth);
 	}
 
-	private getTradeHistory(): TradeEvent[] {
+	getTradeHistory(): TradeEvent[] {
 		return this.exchange.getTradeHistory();
 	}
 

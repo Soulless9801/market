@@ -21,10 +21,18 @@ export class MatchingEngine {
 		this.options = options;
 	}
 
+	private normalizePrice(price: number): number { // rounds to cents
+		return Math.round(price * 100) / 100;
+	}
+
 	execute(order: IncomingOrder): ExecutionReport {
 		const oppositeSide = this.opposite(order.side);
 		const trades: TradeEvent[] = [];
 		let remainingQuantity = order.quantity;
+
+		if (order.type === "LIMIT") {
+			order.price = this.normalizePrice(order.price ?? 0);
+		}
 
 		while (remainingQuantity > 0) {
 			const bestOppositePrice =

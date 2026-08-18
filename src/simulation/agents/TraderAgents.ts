@@ -60,6 +60,8 @@ export interface ImbalanceTraderAgentOptions {
 	maxPriceOffset?: number;
 }
 
+export type MLTraderAgentOptions = ImbalanceTraderAgentOptions; // placeholder for now, can be extended later
+
 class SeededRandom {
 	private state: number;
 
@@ -96,7 +98,7 @@ export function buildDefaultAgents(seed: number, referencePrice = 100): TraderAg
 			seed: seed + 1,
 			maxPriceOffset: 1,
 			bias: "SELL",
-			executionStyle: "AGGRESSIVE",
+			executionStyle: "PASSIVE",
 		}),
 		new RetailTraderAgent("retail-3", {
 			referencePrice,
@@ -107,33 +109,96 @@ export function buildDefaultAgents(seed: number, referencePrice = 100): TraderAg
 			bias: "RANDOM",
 			executionStyle: "RANDOM",
 		}),
-		// new MomentumTraderAgent("momentum-1", {
-		// 	referencePrice,
-		// 	spread: 2,
-		// 	quantity: 5,
-		// 	seed: seed + 3,
-		// 	lookback: 5,
-		// 	momentumThreshold: 0.5,
-		// 	maxPriceOffset: 1,
-		// }),
-		// new MeanReversionTraderAgent("mean-reversion-1", {
-		// 	referencePrice,
-		// 	spread: 2,
-		// 	quantity: 5,
-		// 	seed: seed + 4,
-		// 	lookback: 5,
-		// 	deviationThreshold: 0.5,
-		// 	maxPriceOffset: 1,
-		// }),
-		// new ImbalanceTraderAgent("imbalance-1", {
-		// 	referencePrice,
-		// 	spread: 2,
-		// 	quantity: 5,
-		// 	seed: seed + 5,
-		// 	buyThreshold: 0.65,
-		// 	sellThreshold: 0.35,
-		// 	maxPriceOffset: 1,
-		// }),
+		new MomentumTraderAgent("momentum-1", {
+			referencePrice,
+			spread: 2,
+			quantity: 5,
+			seed: seed + 3,
+			lookback: 5,
+			momentumThreshold: 0.5,
+			executionStyle: "AGGRESSIVE",
+			maxPriceOffset: 1,
+		}),
+		new MomentumTraderAgent("momentum-2", {
+			referencePrice,
+			spread: 2,
+			quantity: 5,
+			seed: seed + 3,
+			lookback: 5,
+			momentumThreshold: 0.5,
+			executionStyle: "PASSIVE",
+			maxPriceOffset: 1,
+		}),
+		new MomentumTraderAgent("momentum-3", {
+			referencePrice,
+			spread: 2,
+			quantity: 5,
+			seed: seed + 3,
+			lookback: 5,
+			momentumThreshold: 0.5,
+			executionStyle: "RANDOM",
+			maxPriceOffset: 1,
+		}),
+		new MeanReversionTraderAgent("mean-reversion-1", {
+			referencePrice,
+			spread: 2,
+			quantity: 5,
+			seed: seed + 4,
+			lookback: 5,
+			deviationThreshold: 0.5,
+			executionStyle: "AGGRESSIVE",
+			maxPriceOffset: 1,
+		}),
+		new MeanReversionTraderAgent("mean-reversion-2", {
+			referencePrice,
+			spread: 2,
+			quantity: 5,
+			seed: seed + 4,
+			lookback: 5,
+			deviationThreshold: 0.5,
+			executionStyle: "RANDOM",
+			maxPriceOffset: 1,
+		}),
+		new MeanReversionTraderAgent("mean-reversion-3", {
+			referencePrice,
+			spread: 2,
+			quantity: 5,
+			seed: seed + 4,
+			lookback: 5,
+			deviationThreshold: 0.5,
+			executionStyle: "PASSIVE",
+			maxPriceOffset: 1,
+		}),
+		new ImbalanceTraderAgent("imbalance-1", {
+			referencePrice,
+			spread: 2,
+			quantity: 5,
+			seed: seed + 5,
+			buyThreshold: 0.65,
+			sellThreshold: 0.35,
+			executionStyle: "AGGRESSIVE",
+			maxPriceOffset: 1,
+		}),
+		new ImbalanceTraderAgent("imbalance-2", {
+			referencePrice,
+			spread: 2,
+			quantity: 5,
+			seed: seed + 5,
+			buyThreshold: 0.65,
+			sellThreshold: 0.35,
+			executionStyle: "PASSIVE",
+			maxPriceOffset: 1,
+		}),
+		new ImbalanceTraderAgent("imbalance-3", {
+			referencePrice,
+			spread: 2,
+			quantity: 5,
+			seed: seed + 5,
+			buyThreshold: 0.65,
+			sellThreshold: 0.35,
+			executionStyle: "RANDOM",
+			maxPriceOffset: 1,
+		}),
 		new MLTraderAgent("ml-1", {
 			referencePrice,
 			spread: 2,
@@ -142,6 +207,33 @@ export function buildDefaultAgents(seed: number, referencePrice = 100): TraderAg
 			maxPriceOffset: 1,
 		}),
 	];
+}
+
+export function buildRandomAgents(seed: number, referencePrice = 100, count = 10): TraderAgent[] {
+	const agents: TraderAgent[] = [];
+	const random = new SeededRandom(seed);
+	for (let i = 0; i < count; i++) {
+		const agentSpin = random.next();
+		if (agentSpin < 0.2) agents.push(randomMarketMakerAgent(`mm-${i}`, seed + i, referencePrice));
+		else if (agentSpin < 0.5) agents.push(randomRetailTraderAgent(`retail-${i}`, seed + i, referencePrice));
+		else if (agentSpin < 0.7) agents.push(randomMomentumTraderAgent(`momentum-${i}`, seed + i, referencePrice));
+		else if (agentSpin < 0.9) agents.push(randomMeanReversionTraderAgent(`mean-reversion-${i}`, seed + i, referencePrice));
+		else agents.push(randomImbalanceTraderAgent(`imbalance-${i}`, seed + i, referencePrice));
+	}
+	return agents;
+}
+
+export function buildAgents(seed: number, referencePrice = 100): TraderAgent[] {
+	const agentCount = 10;
+	const bots: TraderAgent[] = buildRandomAgents(seed, referencePrice, agentCount);
+	const mlAgent = new MLTraderAgent("ml-1", {
+		referencePrice,
+		spread: 2,
+		quantity: 5,
+		seed: seed + agentCount,
+		maxPriceOffset: 1,
+	});
+	return [...bots, mlAgent];
 }
 
 export class MarketMakerAgent implements TraderAgent {
@@ -180,6 +272,15 @@ export class MarketMakerAgent implements TraderAgent {
 			},
 		];
 	}
+}
+
+export function randomMarketMakerAgent(id: string, seed: number, referencePrice = 100): MarketMakerAgent {
+	const random = new SeededRandom(seed);
+	return new MarketMakerAgent(id, {
+		referencePrice,
+		spread: random.next() * 2 + 1,
+		quantity: Math.floor(random.next() * 10) + 1,
+	});
 }
 
 export class RetailTraderAgent implements TraderAgent {
@@ -229,9 +330,7 @@ export class RetailTraderAgent implements TraderAgent {
 	}
 
 	private resolveExecutionStyle(): "PASSIVE" | "AGGRESSIVE" {
-		if (this.executionStyle === "PASSIVE" || this.executionStyle === "AGGRESSIVE") {
-			return this.executionStyle;
-		}
+		if (this.executionStyle !== "RANDOM") return this.executionStyle;
 		return this.random.next() < 0.5 ? "PASSIVE" : "AGGRESSIVE";
 	}
 
@@ -243,30 +342,49 @@ export class RetailTraderAgent implements TraderAgent {
 
 		if (side === "BUY") {
 			if (executionStyle === "PASSIVE") {
-				if (bestBid !== undefined) {
+				if (bestBid !== undefined) { // passive buy below best bid
 					return Math.max(1, bestBid - priceOffset);
 				}
 				return Math.max(1, midPrice - halfSpread - priceOffset);
 			}
 
-			if (bestAsk !== undefined) {
+			if (bestAsk !== undefined) { // aggressive buy at best ask
 				return bestAsk;
 			}
 			return Math.max(1, midPrice + halfSpread + priceOffset);
 		}
 
 		if (executionStyle === "PASSIVE") {
-			if (bestAsk !== undefined) {
+			if (bestAsk !== undefined) { // passive ask above best ask
 				return Math.max(1, bestAsk + priceOffset);
 			}
 			return Math.max(1, midPrice + halfSpread + priceOffset);
 		}
 
-		if (bestBid !== undefined) {
+		if (bestBid !== undefined) { // aggressive sell at best bid
 			return bestBid;
 		}
 		return Math.max(1, midPrice - halfSpread - priceOffset);
 	}
+}
+
+export function randomRetailTraderAgent(id: string, seed: number, referencePrice = 100): RetailTraderAgent {
+	const random = new SeededRandom(seed);
+	const biasSpin = random.next();
+	const bias: AgentSideBias = biasSpin < 0.4 ? "BUY" : biasSpin < 0.8 ? "SELL" : "RANDOM";
+	const executionStyleSpin = random.next();
+	let executionStyle: ExecutionStyle = "RANDOM";
+	if (bias === "BUY") executionStyle = executionStyleSpin < 0.7 ? "AGGRESSIVE" : "PASSIVE";
+	if (bias === "SELL") executionStyle = executionStyleSpin < 0.7 ? "PASSIVE" : "AGGRESSIVE";
+	return new RetailTraderAgent(id, {
+		referencePrice,
+		bias,
+		executionStyle,
+		spread: random.next() * 2 + 1,
+		quantity: Math.floor(random.next() * 10) + 1,
+		maxPriceOffset: random.next() * 1 + 0.5,
+		seed,
+	});
 }
 
 export class MomentumTraderAgent implements TraderAgent {
@@ -410,6 +528,20 @@ export class MomentumTraderAgent implements TraderAgent {
 					offset,
 		);
 	}
+}
+
+export function randomMomentumTraderAgent(id: string, seed: number, referencePrice = 100): MomentumTraderAgent {
+	const random = new SeededRandom(seed);
+	return new MomentumTraderAgent(id, {
+		referencePrice,
+		spread: random.next() * 2 + 1,
+		quantity: Math.floor(random.next() * 10) + 1,
+		lookback: 10,
+		momentumThreshold: random.next() * 1 + 0.5,
+		executionStyle: random.next() < 0.5 ? "AGGRESSIVE" : "PASSIVE",
+		maxPriceOffset: random.next() * 1 + 0.5,
+		seed,
+	});
 }
 
 export class MeanReversionTraderAgent
@@ -576,6 +708,20 @@ export class MeanReversionTraderAgent
 	}
 }
 
+export function randomMeanReversionTraderAgent(id: string, seed: number, referencePrice = 100): MeanReversionTraderAgent {
+	const random = new SeededRandom(seed);
+	return new MeanReversionTraderAgent(id, {
+		referencePrice,
+		spread: random.next() * 2 + 1,
+		quantity: Math.floor(random.next() * 10) + 1,
+		lookback: 10,
+		deviationThreshold: random.next() * 1 + 0.5,
+		executionStyle: random.next() < 0.5 ? "PASSIVE" : "AGGRESSIVE",
+		maxPriceOffset: random.next() * 1 + 0.5,
+		seed,
+	});
+}
+
 export class ImbalanceTraderAgent
 	implements TraderAgent
 {
@@ -723,7 +869,19 @@ export class ImbalanceTraderAgent
 	}
 }
 
-export type MLTraderAgentOptions = ImbalanceTraderAgentOptions; // placeholder for now, can be extended later
+export function randomImbalanceTraderAgent(id: string, seed: number, referencePrice = 100): ImbalanceTraderAgent {
+	const random = new SeededRandom(seed);
+	return new ImbalanceTraderAgent(id, {
+		referencePrice,
+		spread: random.next() * 2 + 1,
+		quantity: Math.floor(random.next() * 10) + 1,
+		buyThreshold: random.next() * 0.2 + 0.6, // between 0.6 and 0.9
+		sellThreshold: random.next() * 0.2 + 0.2, // between 0.1 and 0.4
+		executionStyle: random.next() < 0.5 ? "AGGRESSIVE" : "PASSIVE",
+		maxPriceOffset: random.next() * 1 + 0.5,
+		seed,
+	});
+}
 
 export class MLTraderAgent implements TraderAgent {
 	readonly id: string;

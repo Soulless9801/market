@@ -1,4 +1,4 @@
-import type { OrderBookSnapshot, LimitedTradeEvent, OrderImbalance } from "../engine";
+import type { OrderBookSnapshot, LimitedTradeEvent, OrderImbalance, TradeEvent } from "../engine";
 import type { PortfolioSnapshot } from "../simulation/portfolio";
 import {
 	calculateMidPrice,
@@ -106,8 +106,8 @@ export function buildBookRows(snapshot: OrderBookSnapshot): { bids: BookRow[]; a
 
 export function buildMarketViewModel(
 	snapshot: OrderBookSnapshot,
-	tradeHistory: LimitedTradeEvent[],
-	portfolioSnapshots: PortfolioSnapshot[],
+	tradeHistory: TradeEvent[],
+	participants: PortfolioSnapshot[],
 	clock: number,
 	midPriceSeries: number[],
 ): MarketViewModel {
@@ -124,7 +124,7 @@ export function buildMarketViewModel(
 		tradeCount: tradeHistory.length,
 		totalVolume,
 		imbalance,
-		participants: buildParticipantSnapshots(portfolioSnapshots),
+		participants: buildParticipantSnapshots(participants),
 		asks: rows.asks,
 		bids: rows.bids,
 		trades: buildTradeTape(tradeHistory),
