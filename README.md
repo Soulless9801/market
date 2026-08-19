@@ -39,3 +39,6 @@ Agents interact with the market through a shared observable market context. This
 
 The long-term goal is to use the simulator as an testing environment for increasingly sophisticated trading agents. In particular, the project will eventually incorporate deep learning-based agents, with performance evaluated against the other simulated participants.
 
+## Deployment
+
+A production deployment can be accessed [here](https://market-gpsakura.vercel.app)
