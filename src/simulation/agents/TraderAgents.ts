@@ -226,7 +226,7 @@ export function buildRandomAgents(seed: number, referencePrice = 100, count = 10
 export function buildAgents(seed: number, referencePrice = 100): TraderAgent[] {
 	const agentCount = 10;
 	const bots: TraderAgent[] = buildRandomAgents(seed, referencePrice, agentCount);
-	const mlAgent = new MLTraderAgent("ml-1", {
+	const mlAgent = new MLTraderAgent("ml-" + agentCount, {
 		referencePrice,
 		spread: 2,
 		quantity: 5,
@@ -921,8 +921,8 @@ export class MLTraderAgent implements TraderAgent {
 	private resolveSide(context: AgentSimulatorContext): "BUY" | "SELL" {
 		const model = new MLP();
 		const input = [
-			context.recentMidPriceSeries[context.recentMidPriceSeries.length - 1] - context.recentMidPriceSeries[context.recentMidPriceSeries.length - 2], // short return
-			context.recentMidPriceSeries[context.recentMidPriceSeries.length - 1] - context.recentMidPriceSeries[0], // long return
+			context.midPrice - context.recentMidPriceSeries[context.recentMidPriceSeries.length - 1], // short return
+			context.midPrice - context.recentMidPriceSeries[0], // long return
 			context.spread, // spread
 			context.orderImbalance.imbalance, // imbalance
 		];

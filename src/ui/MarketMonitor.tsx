@@ -92,7 +92,17 @@ function formatPrice(value: number | null): string {
 	if (value === null) {
 		return "—";
 	}
-	return value.toFixed(2);
+	return "$" + value.toFixed(2);
+}
+
+function formatCash(value: number): string {
+	if (value === null) {
+		return "—";
+	}
+	if (value < 0) {
+		return "-$" + Math.abs(value).toFixed(2);
+	}
+	return "$" + value.toFixed(2);
 }
 
 function formatQuantity(value: number): string {
@@ -119,6 +129,8 @@ function MarketMonitor() {
 	const maxHistory = useMemo(() => Math.max(...viewModel.midPriceSeries), [viewModel.midPriceSeries]);
 	const minHistory = useMemo(() => Math.min(...viewModel.midPriceSeries), [viewModel.midPriceSeries]);
 
+
+	// midprice display dimensions
 	const width = 600;
 	const height = 250;
 
@@ -127,11 +139,11 @@ function MarketMonitor() {
 
 	return (
 		<div style={{ minHeight: "100vh", background: "#060b16", color: "#f2f5ff", padding: "24px", fontFamily: "Inter, system-ui, sans-serif" }}>
-			<div style={{ maxWidth: "1400px", margin: "0 auto", display: "grid", gap: "16px" }}>
+			<div style={{ maxWidth: "1400px", margin: "0 0", display: "grid", gap: "16px" }}>
 				<header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: "8px", borderBottom: "1px solid #23304d" }}>
 					<div>
 						<h1 style={{ margin: 0, fontSize: "28px", letterSpacing: "0.03em" }}>Synthetic Market Monitor</h1>
-						<p style={{ margin: "6px 0 0", color: "#86a0c9" }}>Live order flow, liquidity, and trade activity</p>
+						<p style={{ margin: "6px 0 0", color: "#86a0c9" }}>negative cash and inventory is (totally) a feature</p>
 					</div>
 					<div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
 						<button onClick={() => setIsRunning((value) => !value)} style={buttonStyle}>
@@ -246,10 +258,10 @@ function MarketMonitor() {
 							{viewModel.participants.map((participant) => (
 								<div key={participant.agentId} style={{ padding: "10px 12px", border: "1px solid #23304d", borderRadius: "8px", background: "#081120" }}>
 									<div style={{ fontWeight: 600 }}>{participant.agentId}</div>
-									<div style={{ marginTop: "4px", color: "#86a0c9", fontSize: "14px" }}>PNL: {participant.pnl}</div>
+									<div style={{ marginTop: "4px", color: "#86a0c9", fontSize: "14px" }}>PNL: {formatCash(participant.pnl)}</div>
 									<div style={{ color: "#86a0c9", fontSize: "14px" }}>Inventory: {participant.inventory}</div>
 									<div style={{ color: "#86a0c9", fontSize: "14px" }}>Orders Submitted: {participant.ordersSubmitted}</div>
-									<div style={{ color: "#86a0c9", fontSize: "14px" }}>Cash: {participant.cash}</div>
+									<div style={{ color: "#86a0c9", fontSize: "14px" }}>Cash: {formatCash(participant.cash)}</div>
 								</div>
 							))}
 						</div>
@@ -352,7 +364,8 @@ const buttonStyle: CSSProperties = {
 };
 
 const inputStyle: CSSProperties = {
-	padding: "8px 10px",
+	appearance: "none",
+	padding: "8px 12px",
 	borderRadius: "8px",
 	border: "1px solid #23304d",
 	background: "#081120",
