@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import { Exchange } from "../engine";
 
-describe("Phase 1 matching engine", () => {
+describe("exchange", () => {
 	it("matches crossing limit orders at resting order price and leaves residual quantity", () => {
 		const exchange = new Exchange();
 
-		exchange.submitOrder({
+		let report = exchange.submitOrder({
 			id: "buy-1",
 			participantId: "participant-A",
 			side: "BUY",
@@ -15,7 +15,13 @@ describe("Phase 1 matching engine", () => {
 			price: 99,
 		});
 
-		const report = exchange.submitOrder({
+		expect(report.status).toBe("RESTING");
+		expect(report.filledQuantity).toBe(0);
+		expect(report.remainingQuantity).toBe(100);
+		expect(report.wasAddedToBook).toBe(true);
+		expect(report.trades).toHaveLength(0);
+
+		report = exchange.submitOrder({
 			id: "sell-1",
 			participantId: "participant-B",
 			side: "SELL",
@@ -28,7 +34,13 @@ describe("Phase 1 matching engine", () => {
 		expect(report.trades).toHaveLength(1);
 		expect(report.trades[0]).toMatchObject({
 			buyOrderId: "buy-1",
+			buyerParticipantId: "participant-A",
 			sellOrderId: "sell-1",
+			sellerParticipantId: "participant-B",
+			makerOrderId: "buy-1",
+			makerParticipantId: "participant-A",
+			takerOrderId: "sell-1",
+			takerParticipantId: "participant-B",
 			quantity: 50,
 			price: 99,
 			aggressorSide: "SELL",
@@ -103,9 +115,24 @@ describe("Phase 1 matching engine", () => {
 			cancelledQuantity: 25,
 		});
 
+		const report = exchange.submitOrder({
+			id: "sell-1",
+			participantId: "participant-D",
+			side: "SELL",
+			type: "LIMIT",
+			quantity: 10,
+			price: 96,
+		});
+
+		expect(report.status).toBe("RESTING");
+		expect(report.filledQuantity).toBe(0);
+		expect(report.remainingQuantity).toBe(10);
+		expect(report.wasAddedToBook).toBe(true);
+		expect(report.trades).toHaveLength(0);
+
 		expect(exchange.getOrderBookSnapshot()).toEqual({
 			bids: [],
-			asks: [],
+			asks: [{ price: 96, quantity: 10, orderCount: 1 }],
 		});
 	});
 
@@ -150,12 +177,17 @@ describe("Phase 1 matching engine", () => {
 		expect(report.trades).toHaveLength(2);
 		expect(report.trades[0].makerOrderId).toBe("sell-1");
 		expect(report.trades[1].makerOrderId).toBe("sell-3");
+
+		expect(exchange.getOrderBookSnapshot()).toEqual({
+			bids: [],
+			asks: [],
+		});
 	});
 
 	it("does not rest market orders when there is no available liquidity", () => {
 		const exchange = new Exchange();
 
-		const report = exchange.submitOrder({
+		let report = exchange.submitOrder({
 			id: "buy-market-empty",
 			participantId: "participant-D",
 			side: "BUY",
@@ -171,5 +203,86 @@ describe("Phase 1 matching engine", () => {
 			bids: [],
 			asks: [],
 		});
+
+		exchange.submitOrder({
+			id: "buy-limit",
+			participantId: "participant-E",
+			side: "BUY",
+			type: "LIMIT",
+			quantity: 5,
+			price: 100,
+		});
+
+		exchange.submitOrder({
+			id: "sell-limit",
+			participantId: "participant-E",
+			side: "SELL",
+			type: "LIMIT",
+			quantity: 5,
+			price: 101,
+		});
+
+		report = exchange.submitOrder({
+			id: "sell-market-empty",
+			participantId: "participant-F",
+			side: "SELL",
+			type: "MARKET",
+			quantity: 10,
+		});
+
+		expect(report.status).toBe("PARTIALLY_FILLED");
+		expect(report.filledQuantity).toBe(5);
+		expect(report.remainingQuantity).toBe(5);
+		expect(report.wasAddedToBook).toBe(false);
+		expect(exchange.getOrderBookSnapshot()).toEqual({
+			bids: [],
+			asks: [{ price: 101, quantity: 5, orderCount: 1 }],
+		});
+	});
+
+	it("successfully rejects orders with invalid parameters", () => {
+		const exchange = new Exchange();
+
+		let report = exchange.submitOrder({
+			id: "invalid-quantity",
+			participantId: "participant-G",
+			side: "BUY",
+			type: "LIMIT",
+			quantity: -10,
+			price: 100,
+		});
+
+		expect(report.status).toBe("REJECTED");
+		expect(report.rejectionReason).toBe(
+			"Order quantity must be positive and finite",
+		);
+
+		report = exchange.submitOrder({
+			id: "invalid-price",
+			participantId: "participant-H",
+			side: "SELL",
+			type: "LIMIT",
+			quantity: 10,
+			price: -100,
+		});
+
+		expect(report.status).toBe("REJECTED");
+		expect(report.rejectionReason).toBe(
+			"Limit price must be positive and finite",
+		);
+
+		report = exchange.submitOrder({
+			id: "invalid-quantity-type",
+			participantId: "participant-I",
+			side: "BUY",
+			type: "LIMIT",
+			quantity: 10.5,
+			price: 100,
+		});
+
+		expect(report.status).toBe("REJECTED");
+		expect(report.rejectionReason).toBe(
+			"Order quantity must be an integer share count",
+		);
 	});
 });

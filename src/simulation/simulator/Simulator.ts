@@ -1,17 +1,20 @@
-import { Exchange, type ExecutionReport, type OrderBookSnapshot, type TradeEvent } from "../../engine";
+import { calculateRecentOrderImbalance, Exchange } from "../../engine";
+import type { 
+	ExecutionReport,
+	LimitedTradeEvent,
+	OrderBookSnapshot, 
+	OrderImbalance, 
+	TradeEvent 
+} from "../../engine";
 import type { SimulationEvent } from "../events";
-import type { SimulationContext, TraderAgent } from "../agents";
+import type { TraderAgent } from "../agents";
+import { PortfolioManager } from "../portfolio";
+import type { PortfolioSnapshot } from "../portfolio";
 
 export interface SimulatorOptions {
 	exchange?: Exchange;
 	agents: TraderAgent[];
 	referencePrice?: number;
-}
-
-export interface ParticipantStats {
-	agentId: string;
-	ordersSubmitted: number;
-	inventory: number;
 }
 
 export interface StepResult {
@@ -21,25 +24,51 @@ export interface StepResult {
 	trades: TradeEvent[];
 }
 
+// export interface SimulationContext {
+// 	clock: number;
+// 	snapshot: OrderBookSnapshot;
+// 	midPrice: number;
+// 	lastTradePrice?: number;
+// 	tradeCount: number;
+// }
+
+export interface ObservableSimulatorContext {
+	clock: number;
+	midPrice: number;
+	spread: number;
+	orderBook: OrderBookSnapshot;
+	recentTrades: LimitedTradeEvent[];
+	recentMidPriceSeries: number[];
+	orderImbalance: OrderImbalance;
+}
+
+export interface AgentSimulatorContext extends ObservableSimulatorContext {
+	portfolio: PortfolioSnapshot;
+}
+
 export class Simulator {
 	private exchange: Exchange;
 	private readonly agents: TraderAgent[];
 	private readonly referencePrice: number;
+	private readonly midPriceHistory: number[] = [];
 	private readonly events: SimulationEvent[] = [];
-	private readonly participantStats = new Map<string, ParticipantStats>();
+	// private readonly participantStats = new Map<string, ParticipantStats>();
 	private readonly orderParticipants = new Map<string, string>();
 	private clock = 0;
+
+	private readonly portfolioManager = new PortfolioManager();
 
 	constructor(options: SimulatorOptions) {
 		this.exchange = options.exchange ?? new Exchange();
 		this.agents = options.agents;
 		this.referencePrice = options.referencePrice ?? 100;
-		this.initializeParticipantStats();
+		this.initializeParticipantPortfolios();
 	}
 
 	runStep(): StepResult {
 		this.clock += 1;
-		const context = this.createContext();
+		const observableContext = this.getObservableContext();
+		this.midPriceHistory.push(observableContext.midPrice);
 		const reports: ExecutionReport[] = [];
 		const stepEvents: SimulationEvent[] = [];
 
@@ -49,11 +78,13 @@ export class Simulator {
 				timestamp: this.clock,
 				agentId: agent.id,
 			});
+			const agentContext = this.getAgentContext(agent.id, observableContext);
 
-			const orders = agent.step(context);
+			const orders = agent.step(agentContext);
 			for (const order of orders) {
 				const report = this.exchange.submitOrder(order);
-				this.recordOrderSubmission(agent.id, report.orderId);
+				this.portfolioManager.incrementOrdersSubmitted(agent.id);
+				// this.recordOrderSubmission(agent.id, report.orderId);
 				reports.push(report);
 				stepEvents.push({
 					type: "order-submitted",
@@ -64,7 +95,7 @@ export class Simulator {
 				});
 
 				for (const trade of report.trades) {
-					this.applyTrade(trade);
+					this.portfolioManager.applyTrade(trade);
 				}
 
 				if (report.trades.length > 0) {
@@ -99,10 +130,12 @@ export class Simulator {
 	reset(): void {
 		this.exchange = new Exchange();
 		this.events.splice(0, this.events.length);
-		this.participantStats.clear();
+		this.portfolioManager.reset();
+		this.midPriceHistory.splice(0, this.midPriceHistory.length);
+		// this.participantStats.clear();
 		this.orderParticipants.clear();
 		this.clock = 0;
-		this.initializeParticipantStats();
+		this.initializeParticipantPortfolios();
 	}
 
 	getEvents(): SimulationEvent[] {
@@ -121,61 +154,79 @@ export class Simulator {
 		return this.exchange.getTradeHistory();
 	}
 
-	getParticipantStats(): ParticipantStats[] {
-		return Array.from(this.participantStats.values());
+	getLimitedTradeHistory(depth = 10): LimitedTradeEvent[] {
+		return this.getTradeHistory().slice(-depth).map((trade) => ({
+			tradeId: trade.tradeId,
+			timestamp: trade.timestamp,
+			price: trade.price,
+			quantity: trade.quantity,
+			aggressorSide: trade.aggressorSide,
+		}));
+	}
+
+	getMidPriceHistory(): number[] {
+		return [...this.midPriceHistory];
+	}
+
+	getParticpantPortfolios(): PortfolioSnapshot[] {
+		const snapshot = this.exchange.getOrderBookSnapshot();
+		return this.agents.map((agent) => {
+			const portfolioSnapshot = this.portfolioManager.getPortfolioSnapshot(agent.id, snapshot);
+			if (!portfolioSnapshot) {
+				throw new Error(`Portfolio snapshot for agent ${agent.id} not found`);
+			}
+			return portfolioSnapshot;
+		});
 	}
 
 	getClock(): number {
 		return this.clock;
 	}
 
-	private initializeParticipantStats(): void {
+	private initializeParticipantPortfolios(): void {
 		for (const agent of this.agents) {
-			this.participantStats.set(agent.id, {
-				agentId: agent.id,
-				ordersSubmitted: 0,
-				inventory: 0,
-			});
+			this.portfolioManager.createPortfolio(agent.id, 100000);
 		}
 	}
 
-	private recordOrderSubmission(agentId: string, orderId: string): void {
-		this.orderParticipants.set(orderId, agentId);
-		const participant = this.participantStats.get(agentId);
-		if (participant) {
-			participant.ordersSubmitted += 1;
-		}
-	}
+	// private createContext(): SimulationContext {
+	// 	const snapshot = this.exchange.getOrderBookSnapshot();
+	// 	const trades = this.exchange.getTradeHistory();
+	// 	const lastTrade = trades[trades.length - 1];
+	// 	const midPrice = this.calculateMidPrice(snapshot);
+	// 	return {
+	// 		clock: this.clock,
+	// 		snapshot,
+	// 		midPrice,
+	// 		lastTradePrice: lastTrade?.price,
+	// 		tradeCount: trades.length,
+	// 	};
+	// }
 
-	private applyTrade(trade: TradeEvent): void {
-		const makerParticipantId = this.orderParticipants.get(trade.makerOrderId);
-		const takerParticipantId = this.orderParticipants.get(trade.takerOrderId);
-		if (makerParticipantId) {
-			this.updateInventory(makerParticipantId, trade.buyOrderId === trade.makerOrderId ? trade.quantity : -trade.quantity);
-		}
-		if (takerParticipantId) {
-			this.updateInventory(takerParticipantId, trade.buyOrderId === trade.takerOrderId ? trade.quantity : -trade.quantity);
-		}
-	}
+	getObservableContext(
+		tradeHistoryLimit = 20,
+		priceHistoryLimit = 20,
+	): ObservableSimulatorContext {
+		const orderBook = this.exchange.getOrderBookSnapshot();
 
-	private updateInventory(agentId: string, delta: number): void {
-		const participant = this.participantStats.get(agentId);
-		if (participant) {
-			participant.inventory += delta;
-		}
-	}
+		const midPrice = this.calculateMidPrice(orderBook);
 
-	private createContext(): SimulationContext {
-		const snapshot = this.exchange.getOrderBookSnapshot();
-		const trades = this.exchange.getTradeHistory();
-		const lastTrade = trades[trades.length - 1];
-		const midPrice = this.calculateMidPrice(snapshot);
+		const bestBid = orderBook.bids[0]?.price;
+		const bestAsk = orderBook.asks[0]?.price;
+
+		const spread =
+			bestBid !== undefined && bestAsk !== undefined
+				? bestAsk - bestBid
+				: 0;
+
 		return {
 			clock: this.clock,
-			snapshot,
 			midPrice,
-			lastTradePrice: lastTrade?.price,
-			tradeCount: trades.length,
+			spread,
+			orderBook,
+			recentTrades: this.getLimitedTradeHistory(tradeHistoryLimit),
+			recentMidPriceSeries: this.midPriceHistory.slice(-priceHistoryLimit),
+			orderImbalance: calculateRecentOrderImbalance(orderBook),
 		};
 	}
 
@@ -186,5 +237,16 @@ export class Simulator {
 			return (bestBid + bestAsk) / 2;
 		}
 		return this.referencePrice;
+	}
+
+	getAgentContext(agentId: string, observableContext: ObservableSimulatorContext): AgentSimulatorContext {
+		const portfolioSnapshot = this.portfolioManager.getPortfolioSnapshot(agentId, observableContext.orderBook);
+		if (!portfolioSnapshot) {
+			throw new Error(`Portfolio snapshot for agent ${agentId} not found`);
+		}
+		return {
+			...observableContext,
+			portfolio: portfolioSnapshot,
+		};
 	}
 }

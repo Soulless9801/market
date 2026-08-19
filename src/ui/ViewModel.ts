@@ -1,5 +1,10 @@
-import type { OrderBookSnapshot, TradeEvent } from "../engine";
-import type { ParticipantStats } from "../simulation";
+import type { OrderBookSnapshot, LimitedTradeEvent, OrderImbalance, TradeEvent } from "../engine";
+import type { PortfolioSnapshot } from "../simulation/portfolio";
+import {
+	calculateMidPrice,
+	calculateSpread,
+	calculateRecentOrderImbalance,
+} from "../engine";
 
 export interface BookRow {
 	side: "BID" | "ASK";
@@ -23,13 +28,7 @@ export interface MarketViewModel {
 	spread: number | null;
 	tradeCount: number;
 	totalVolume: number;
-	imbalance: {
-		bidVolume: number;
-		askVolume: number;
-		imbalance: number;
-		bidPercent: number;
-		askPercent: number;
-	};
+	imbalance: OrderImbalance;
 	participants: ParticipantSnapshot[];
 	asks: BookRow[];
 	bids: BookRow[];
@@ -40,42 +39,14 @@ export interface MarketViewModel {
 export interface ParticipantSnapshot {
 	agentId: string;
 	ordersSubmitted: number;
+	cash: number;
 	inventory: number;
+	marketValue: number;
+	equity: number;
+	pnl: number;
 }
 
-export function calculateMidPrice(snapshot: OrderBookSnapshot, fallback = 100): number {
-	const bestBid = snapshot.bids[0]?.price;
-	const bestAsk = snapshot.asks[0]?.price;
-	if (bestBid !== undefined && bestAsk !== undefined) {
-		return (bestBid + bestAsk) / 2;
-	}
-	return fallback;
-}
-
-export function calculateSpread(snapshot: OrderBookSnapshot): number | null {
-	const bestBid = snapshot.bids[0]?.price;
-	const bestAsk = snapshot.asks[0]?.price;
-	if (bestBid === undefined || bestAsk === undefined) {
-		return null;
-	}
-	return bestAsk - bestBid;
-}
-
-export function calculateOrderImbalance(snapshot: OrderBookSnapshot) {
-	const bidVolume = snapshot.bids.reduce((sum, level) => sum + level.quantity, 0);
-	const askVolume = snapshot.asks.reduce((sum, level) => sum + level.quantity, 0);
-	const totalVolume = bidVolume + askVolume;
-	const imbalance = totalVolume === 0 ? 0 : bidVolume / totalVolume;
-	return {
-		bidVolume,
-		askVolume,
-		imbalance,
-		bidPercent: Math.round(imbalance * 1000) / 10,
-		askPercent: Math.round((1 - imbalance) * 1000) / 10,
-	};
-}
-
-export function buildTradeTape(trades: TradeEvent[], limit = 12): TradeTapeEntry[] {
+export function buildTradeTape(trades: LimitedTradeEvent[], limit = 12): TradeTapeEntry[] {
 	return trades.slice(-limit).reverse().map((trade) => ({
 		id: trade.tradeId,
 		timestamp: trade.timestamp,
@@ -85,11 +56,15 @@ export function buildTradeTape(trades: TradeEvent[], limit = 12): TradeTapeEntry
 	}));
 }
 
-export function buildParticipantSnapshots(stats: ParticipantStats[]): ParticipantSnapshot[] {
+export function buildParticipantSnapshots(stats: PortfolioSnapshot[]): ParticipantSnapshot[] {
 	return stats.map((stat) => ({
-		agentId: stat.agentId,
+		agentId: stat.participantId,
 		ordersSubmitted: stat.ordersSubmitted,
+		cash: stat.cash,
+		marketValue: stat.marketValue,
+		equity: stat.equity,
 		inventory: stat.inventory,
+		pnl: stat.pnl,
 	}));
 }
 
@@ -132,14 +107,14 @@ export function buildBookRows(snapshot: OrderBookSnapshot): { bids: BookRow[]; a
 export function buildMarketViewModel(
 	snapshot: OrderBookSnapshot,
 	tradeHistory: TradeEvent[],
-	participantStats: ParticipantStats[],
+	participants: PortfolioSnapshot[],
 	clock: number,
 	midPriceSeries: number[],
 ): MarketViewModel {
 	const midPrice = calculateMidPrice(snapshot);
 	const spread = calculateSpread(snapshot);
 	const totalVolume = tradeHistory.reduce((sum, trade) => sum + trade.quantity, 0);
-	const imbalance = calculateOrderImbalance(snapshot);
+	const imbalance = calculateRecentOrderImbalance(snapshot);
 	const rows = buildBookRows(snapshot);
 
 	return {
@@ -149,7 +124,7 @@ export function buildMarketViewModel(
 		tradeCount: tradeHistory.length,
 		totalVolume,
 		imbalance,
-		participants: buildParticipantSnapshots(participantStats),
+		participants: buildParticipantSnapshots(participants),
 		asks: rows.asks,
 		bids: rows.bids,
 		trades: buildTradeTape(tradeHistory),

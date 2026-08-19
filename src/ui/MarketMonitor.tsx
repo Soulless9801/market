@@ -2,20 +2,21 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactElement } from "react";
 
 import type { OrderBookSnapshot } from "../engine";
-import { buildDefaultAgents, Simulator } from "../simulation";
-import { buildMarketViewModel, calculateMidPrice, type MarketViewModel } from "./marketViewModel";
+import { buildAgents, Simulator } from "../simulation";
+import { buildMarketViewModel, type MarketViewModel } from "./ViewModel";
+import { calculateMidPrice } from "../engine";
 
 const DEFAULT_SEED = 7;
 const DEFAULT_REFERENCE_PRICE = 100;
 
-function createSimulator(seed: number): Simulator {
+function createSimulator(seed: number): Simulator { // initialize a new simulator
 	return new Simulator({
-		agents: buildDefaultAgents(seed, DEFAULT_REFERENCE_PRICE),
+		agents: buildAgents(seed, DEFAULT_REFERENCE_PRICE),
 		referencePrice: DEFAULT_REFERENCE_PRICE,
 	});
 }
 
-function getMidPrice(snapshot: OrderBookSnapshot): number {
+function getMidPrice(snapshot: OrderBookSnapshot): number { // wrapper to calculate mid price
 	return calculateMidPrice(snapshot, DEFAULT_REFERENCE_PRICE);
 }
 
@@ -24,35 +25,27 @@ function useSimulationController() {
 	const [seed, setSeed] = useState(DEFAULT_SEED);
 	const [isRunning, setIsRunning] = useState(true);
 	const [playbackSpeed, setPlaybackSpeed] = useState(1);
-	const [viewModel, setViewModel] = useState<MarketViewModel>(() => {
-		const simulator = createSimulator(DEFAULT_SEED);
+
+	const resetSimulation = useCallback(() => { // reset the simulation with a new simulator
+		const simulator = createSimulator(seed);
 		simulatorRef.current = simulator;
 		return buildMarketViewModel(
 			simulator.getOrderBookSnapshot(),
 			simulator.getTradeHistory(),
-			simulator.getParticipantStats(),
+			simulator.getParticpantPortfolios(),
 			simulator.getClock(),
 			[DEFAULT_REFERENCE_PRICE],
 		);
-	});
-
-	const resetSimulation = useCallback(() => {
-		const simulator = createSimulator(seed);
-		simulatorRef.current = simulator;
-		const initialSnapshot = simulator.getOrderBookSnapshot();
-		setViewModel(
-			buildMarketViewModel(
-				initialSnapshot,
-				simulator.getTradeHistory(),
-				simulator.getParticipantStats(),
-				simulator.getClock(),
-				[getMidPrice(initialSnapshot)],
-			),
-		);
 	}, [seed]);
 
+	const [viewModel, setViewModel] = useState<MarketViewModel>(() => resetSimulation());
+
+	const reset = useCallback(() => {
+		setViewModel(resetSimulation());
+	}, [resetSimulation]);
+
 	useEffect(() => {
-		resetSimulation();
+		reset();
 	}, [resetSimulation]);
 
 	useEffect(() => {
@@ -60,7 +53,7 @@ function useSimulationController() {
 			return undefined;
 		}
 
-		const intervalId = window.setInterval(() => {
+		const intervalId = window.setInterval(() => { // needs optimization
 			const simulator = simulatorRef.current;
 			if (!simulator) {
 				return;
@@ -73,7 +66,7 @@ function useSimulationController() {
 				buildMarketViewModel(
 					snapshot,
 					simulator.getTradeHistory(),
-					simulator.getParticipantStats(),
+					simulator.getParticpantPortfolios(),
 					simulator.getClock(),
 					[...previous.midPriceSeries.slice(-39), nextMidPrice],
 				),
@@ -91,7 +84,7 @@ function useSimulationController() {
 		setSeed,
 		setIsRunning,
 		setPlaybackSpeed,
-		resetSimulation,
+		reset,
 	};
 }
 
@@ -99,12 +92,27 @@ function formatPrice(value: number | null): string {
 	if (value === null) {
 		return "—";
 	}
-	return value.toFixed(2);
+	return "$" + value.toFixed(2);
+}
+
+function formatCash(value: number): string {
+	if (value === null) {
+		return "—";
+	}
+	if (value < 0) {
+		return "-$" + Math.abs(value).toFixed(2);
+	}
+	return "$" + value.toFixed(2);
 }
 
 function formatQuantity(value: number): string {
 	return value.toLocaleString();
 }
+
+const leftPadding = 70;
+const rightPadding = 20;
+const topPadding = 20;
+const bottomPadding = 50;
 
 function MarketMonitor() {
 	const {
@@ -115,26 +123,33 @@ function MarketMonitor() {
 		setSeed,
 		setIsRunning,
 		setPlaybackSpeed,
-		resetSimulation,
+		reset,
 	} = useSimulationController();
 
-	const maxHistory = useMemo(() => Math.max(...viewModel.midPriceSeries, DEFAULT_REFERENCE_PRICE), [viewModel.midPriceSeries]);
-	const minHistory = useMemo(() => Math.min(...viewModel.midPriceSeries, DEFAULT_REFERENCE_PRICE), [viewModel.midPriceSeries]);
+	const maxHistory = useMemo(() => Math.max(...viewModel.midPriceSeries), [viewModel.midPriceSeries]);
+	const minHistory = useMemo(() => Math.min(...viewModel.midPriceSeries), [viewModel.midPriceSeries]);
+
+
+	// midprice display dimensions
+	const width = 600;
+	const height = 250;
+
+	const innerWidth = width - leftPadding - rightPadding;
+	const innerHeight = height - topPadding - bottomPadding;
 
 	return (
 		<div style={{ minHeight: "100vh", background: "#060b16", color: "#f2f5ff", padding: "24px", fontFamily: "Inter, system-ui, sans-serif" }}>
-			<div style={{ maxWidth: "1400px", margin: "0 auto", display: "grid", gap: "16px" }}>
+			<div style={{ maxWidth: "1400px", margin: "0 0", display: "grid", gap: "16px" }}>
 				<header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: "8px", borderBottom: "1px solid #23304d" }}>
 					<div>
 						<h1 style={{ margin: 0, fontSize: "28px", letterSpacing: "0.03em" }}>Synthetic Market Monitor</h1>
-						<p style={{ margin: "6px 0 0", color: "#86a0c9" }}>Live order flow, liquidity, and trade activity</p>
+						<p style={{ margin: "6px 0 0", color: "#86a0c9" }}>negative cash and inventory is (totally) a feature</p>
 					</div>
 					<div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
 						<button onClick={() => setIsRunning((value) => !value)} style={buttonStyle}>
 							{isRunning ? "Pause" : "Start"}
 						</button>
-						<button onClick={resetSimulation} style={buttonStyle}>Reset</button>
-						<div style={{ fontSize: "13px", color: "#86a0c9" }}>Composition: 1 MM · 2 retail</div>
+						<button onClick={reset} style={buttonStyle}>Reset</button>
 						<label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px", color: "#86a0c9" }}>
 							Seed
 							<input
@@ -159,12 +174,12 @@ function MarketMonitor() {
 						<div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
 							<div>
 								<div style={{ fontSize: "12px", letterSpacing: "0.16em", color: "#86a0c9", textTransform: "uppercase" }}>Order book</div>
-								<div style={{ fontSize: "14px", color: "#f2f5ff" }}>Simulation time {viewModel.clock}</div>
+								<div style={{ fontSize: "14px", color: "#f2f5ff" }}>Simulation Time {viewModel.clock}</div>
 							</div>
 							<div style={{ textAlign: "right" }}>
-								<div style={{ fontSize: "12px", color: "#86a0c9" }}>Best bid</div>
+								<div style={{ fontSize: "12px", color: "#86a0c9" }}>Best Bid</div>
 								<div style={{ fontSize: "18px", fontWeight: 600 }}>{formatPrice(viewModel.bids[0]?.price ?? null)}</div>
-								<div style={{ fontSize: "12px", color: "#86a0c9" }}>Best ask</div>
+								<div style={{ fontSize: "12px", color: "#86a0c9" }}>Best Ask</div>
 								<div style={{ fontSize: "18px", fontWeight: 600 }}>{formatPrice(viewModel.asks[0]?.price ?? null)}</div>
 							</div>
 						</div>
@@ -223,28 +238,30 @@ function MarketMonitor() {
 				<section style={{ display: "grid", gridTemplateColumns: "1.2fr 0.8fr", gap: "16px" }}>
 					<div style={panelStyle}>
 						<div style={{ fontSize: "12px", letterSpacing: "0.16em", color: "#86a0c9", textTransform: "uppercase", marginBottom: "12px" }}>Midprice</div>
-						<svg viewBox="0 0 420 220" style={{ width: "100%", height: "280px" }}>
-							<rect x="0" y="0" width="420" height="220" fill="rgba(8,17,32,0.55)" rx="10" />
-							{renderChartGrid(420, 220, viewModel.midPriceSeries, viewModel.clock, maxHistory, minHistory)}
+						<svg viewBox={`0 0 ${width} ${height}`} style={{ width: "100%", height: "280px" }}>
+							<rect x="0" y="0" width={width} height={height} fill="rgba(8,17,32,0.55)" rx="10" />
+							{renderChartGrid(width, height, viewModel.midPriceSeries, viewModel.clock, maxHistory, minHistory)}
 							<path
-								d={buildPath(viewModel.midPriceSeries, { width: 380, height: 160, maxValue: maxHistory, minValue: minHistory })}
+								d={buildPath(viewModel.midPriceSeries, { width: innerWidth, height: innerHeight, maxValue: maxHistory, minValue: minHistory })}
 								fill="none"
 								stroke="#4fd1c5"
 								strokeWidth="2.5"
 							/>
-							<text x="210" y="208" textAnchor="middle" fill="#86a0c9" fontSize="11">Simulation step</text>
-							<text x="10" y="112" textAnchor="middle" fill="#86a0c9" fontSize="11" transform="rotate(-90 10 112)">Midprice</text>
+							<text x={leftPadding + innerWidth / 2} y={height - 16} textAnchor="middle" fill="#86a0c9" fontSize="11">time</text>
+							<text x="16" y={topPadding + innerHeight / 2} textAnchor="middle" fill="#86a0c9" fontSize="11" transform={`rotate(-90 16 ${topPadding + innerHeight / 2})`}>Midprice</text>
 						</svg>
 					</div>
 
 					<div style={panelStyle}>
 						<div style={{ fontSize: "12px", letterSpacing: "0.16em", color: "#86a0c9", textTransform: "uppercase", marginBottom: "12px" }}>Participants</div>
-						<div style={{ display: "grid", gap: "8px" }}>
+						<div style={{ display: "grid", gap: "8px", scrollBehavior: "smooth", maxHeight: "280px", overflowY: "auto" }}>
 							{viewModel.participants.map((participant) => (
 								<div key={participant.agentId} style={{ padding: "10px 12px", border: "1px solid #23304d", borderRadius: "8px", background: "#081120" }}>
 									<div style={{ fontWeight: 600 }}>{participant.agentId}</div>
-									<div style={{ marginTop: "4px", color: "#86a0c9", fontSize: "14px" }}>Orders: {participant.ordersSubmitted}</div>
+									<div style={{ marginTop: "4px", color: "#86a0c9", fontSize: "14px" }}>PNL: {formatCash(participant.pnl)}</div>
 									<div style={{ color: "#86a0c9", fontSize: "14px" }}>Inventory: {participant.inventory}</div>
+									<div style={{ color: "#86a0c9", fontSize: "14px" }}>Orders Submitted: {participant.ordersSubmitted}</div>
+									<div style={{ color: "#86a0c9", fontSize: "14px" }}>Cash: {formatCash(participant.cash)}</div>
 								</div>
 							))}
 						</div>
@@ -281,13 +298,11 @@ function buildPath(series: number[], dimensions: { width: number; height: number
 		return "";
 	}
 
-	const leftPadding = 20;
-	const topPadding = 20;
 	const innerWidth = dimensions.width;
 	const innerHeight = dimensions.height;
 	const points = series.map((value, index) => {
 		const x = leftPadding + (index / Math.max(1, series.length - 1)) * innerWidth;
-		const normalized = (value - dimensions.minValue) / Math.max(1, dimensions.maxValue - dimensions.minValue);
+		const normalized = (value - dimensions.minValue) / Math.max(0.01, dimensions.maxValue - dimensions.minValue);
 		const y = topPadding + innerHeight - normalized * innerHeight;
 		return `${x},${y}`;
 	});
@@ -298,19 +313,19 @@ function buildPath(series: number[], dimensions: { width: number; height: number
 function renderChartGrid(width: number, height: number, series: number[], currentStep: number, maxValue: number, minValue: number) {
 	const ticks = 5;
 	const xTickCount = Math.min(6, Math.max(2, series.length));
-	const innerWidth = width - 40;
-	const innerHeight = height - 40;
+	const innerWidth = width - leftPadding - rightPadding;
+	const innerHeight = height - topPadding - bottomPadding;
 	const lines: ReactElement[] = [];
 
 	for (let index = 0; index < ticks; index += 1) {
 		const yRatio = index / (ticks - 1);
-		const x = 20;
-		const y = 20 + yRatio * innerHeight;
+		const x = leftPadding;
+		const y = topPadding + yRatio * innerHeight;
 		const value = minValue + (maxValue - minValue) * (1 - yRatio);
 		lines.push(
 			<g key={`y-${index}`}>
-				<line x1={x} x2={width - 20} y1={y} y2={y} stroke="#23304d" strokeWidth="1" />
-				<text x="8" y={y + 4} fill="#86a0c9" fontSize="10">{value.toFixed(1)}</text>
+				<line x1={x} x2={width - rightPadding} y1={y} y2={y} stroke="#23304d" strokeWidth="1" />
+				<text x={leftPadding - 42} y={y + 4} fill="#86a0c9" fontSize="10">{value.toFixed(2)}</text>
 			</g>,
 		);
 	}
@@ -318,12 +333,12 @@ function renderChartGrid(width: number, height: number, series: number[], curren
 	for (let index = 0; index < xTickCount; index += 1) {
 		const xRatio = index / Math.max(1, xTickCount - 1);
 		const sampleIndex = Math.round(xRatio * Math.max(0, series.length - 1));
-		const x = 20 + xRatio * innerWidth;
-		const y = height - 20;
+		const x = leftPadding + xRatio * innerWidth;
+		const y = height - bottomPadding;
 		const step = currentStep - Math.max(0, series.length - 1 - sampleIndex);
 		lines.push(
 			<g key={`x-${index}`}>
-				<line x1={x} x2={x} y1="20" y2={y} stroke="#23304d" strokeWidth="1" />
+				<line x1={x} x2={x} y1={topPadding} y2={y} stroke="#23304d" strokeWidth="1" />
 				<text x={x} y={y + 16} textAnchor="middle" fill="#86a0c9" fontSize="10">{step}</text>
 			</g>,
 		);
@@ -349,7 +364,8 @@ const buttonStyle: CSSProperties = {
 };
 
 const inputStyle: CSSProperties = {
-	padding: "8px 10px",
+	appearance: "none",
+	padding: "8px 12px",
 	borderRadius: "8px",
 	border: "1px solid #23304d",
 	background: "#081120",
