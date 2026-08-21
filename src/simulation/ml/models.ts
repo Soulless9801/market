@@ -9,8 +9,8 @@ function applyRelu(values: number[]): number[] {
 
 export class DenseLayer {
 
-    private readonly weights: number[][];
-    private readonly biases: number[];
+    weights: number[][];
+    biases: number[];
 
     constructor(weights: number[][], biases: number[]) {
         this.weights = weights;
@@ -60,5 +60,37 @@ export class MLP {
         );
 
         return this.output.forward(hidden);
+    }
+
+    train(input: number[], target: number[], learningRate: number): void {
+        // Forward pass
+        const hidden = applyRelu(
+            this.hidden.forward(input)
+        );
+        const output = this.output.forward(hidden);
+
+        // Compute loss (mean squared error)
+        const loss = output.map((o, i) => o - target[i]);
+
+        // Backpropagation (simplified for demonstration)
+        const outputGradients = loss.map(l => l * 2);
+        const hiddenGradients = this.output.weights.map((row, _) =>
+            row.reduce((sum, w, j) => sum + w * outputGradients[j], 0)
+        );
+
+        // Update weights and biases (simplified)
+        for (let i = 0; i < this.output.weights.length; i++) {
+            for (let j = 0; j < this.output.weights[i].length; j++) {
+                this.output.weights[i][j] -= learningRate * outputGradients[i] * hidden[j];
+            }
+            this.output.biases[i] -= learningRate * outputGradients[i];
+        }
+
+        for (let i = 0; i < this.hidden.weights.length; i++) {
+            for (let j = 0; j < this.hidden.weights[i].length; j++) {
+                this.hidden.weights[i][j] -= learningRate * hiddenGradients[i] * input[j];
+            }
+            this.hidden.biases[i] -= learningRate * hiddenGradients[i];
+        }
     }
 }

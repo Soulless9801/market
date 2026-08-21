@@ -1,5 +1,6 @@
 import type { NewOrderRequest, OrderBookSnapshot } from "../../engine";
 import type { AgentSimulatorContext } from "../simulator";
+import { buildFeatures } from "../ml";
 import { MLP } from "../ml";
 
 export type AgentSideBias = "BUY" | "SELL" | "RANDOM";
@@ -920,12 +921,7 @@ export class MLTraderAgent implements TraderAgent {
 
 	private resolveSide(context: AgentSimulatorContext): "BUY" | "SELL" {
 		const model = new MLP();
-		const input = [
-			context.midPrice - context.recentMidPriceSeries[context.recentMidPriceSeries.length - 1], // short return
-			context.midPrice - context.recentMidPriceSeries[0], // long return
-			context.spread, // spread
-			context.orderImbalance.imbalance, // imbalance
-		];
+		const input = buildFeatures(context);
 		const output = model.predict(input);
 		return output[0] > output[1] ? "BUY" : "SELL";
 	}

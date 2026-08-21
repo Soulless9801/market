@@ -6,3 +6,6 @@ dist
 *.log
 .env
 .env.*
+dockerfile
+.prettierrc
+eslint.config.js
