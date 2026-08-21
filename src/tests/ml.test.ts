@@ -81,7 +81,7 @@ describe("MLP", () => {
 
         // console.log(model);
 
-        // expect(trainResult.finalAccuracy).toBeGreaterThanOrEqual(0.6);
+        expect(trainResult.finalAccuracy).toBeGreaterThanOrEqual(0.6); // bro
         expect(testResult.accuracy).toBeGreaterThanOrEqual(0.6);
     });
 });
