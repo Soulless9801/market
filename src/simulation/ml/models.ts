@@ -1,96 +1,307 @@
-function relu(x: number): number {
-    return Math.max(0, x);
+import { SeededRandom } from "../agents";
+
+export class DenseLayer {
+	weights: number[][];
+	biases: number[];
+
+	constructor(
+		inputSize: number,
+		outputSize: number,
+        random: SeededRandom
+	) {
+		const std = Math.sqrt(2 / inputSize);
+
+		this.weights = Array.from(
+			{ length: outputSize },
+			() =>
+				Array.from(
+					{ length: inputSize },
+					() => this.randomNormal(random) * std,
+				),
+		);
+
+		this.biases = new Array(outputSize).fill(0);
+	}
+
+	forward(input: number[]): number[] {
+		return this.weights.map((row, i) => {
+			let value = this.biases[i];
+
+			for (let j = 0; j < input.length; j++) {
+				value += row[j] * input[j];
+			}
+
+			return value;
+		});
+	}
+
+	private randomNormal(random: SeededRandom): number {
+		// Box-Muller transform
+		let u = 0;
+		let v = 0;
+
+		while (u === 0) {
+			u = random.next();
+		}
+
+		while (v === 0) {
+			v = random.next();
+		}
+
+		return Math.sqrt(-2 * Math.log(u)) *
+			Math.cos(2 * Math.PI * v);
+	}
 }
 
 function applyRelu(values: number[]): number[] {
-    return values.map(relu);
+	return values.map((value) =>
+		Math.max(0, value),
+	);
 }
 
+function reluDerivative(
+	values: number[],
+): number[] {
+	return values.map((value) =>
+		value > 0 ? 1 : 0,
+	);
+}
 
-export class DenseLayer {
+function softmax(values: number[]): number[] {
+	const max = Math.max(...values);
 
-    weights: number[][];
-    biases: number[];
+	const exponentials = values.map((value) =>
+		Math.exp(value - max),
+	);
 
-    constructor(weights: number[][], biases: number[]) {
-        this.weights = weights;
-        this.biases = biases;
-    }
+	const sum = exponentials.reduce(
+		(total, value) => total + value,
+		0,
+	);
 
-    forward(input: number[]): number[] {
-        return this.weights.map((row, i) => {
-            let value = this.biases[i];
-
-            for (let j = 0; j < input.length; j++) {
-                value += row[j] * input[j];
-            }
-
-            return value;
-        });
-    }
+	return exponentials.map(
+		(value) => value / sum,
+	);
 }
 
 export class MLP {
-    private readonly hidden: DenseLayer;
-    private readonly output: DenseLayer;
+	private readonly layers: DenseLayer[];
 
-    constructor() {
-        this.hidden = new DenseLayer(
-            [
-                [0.1, -0.2, 0.3, 0.4],
-                [-0.3, 0.2, 0.1, -0.4],
-                [0.2, 0.1, -0.1, 0.3],
-            ],
-            [0, 0, 0],
-        );
+	constructor(
+		architecture: number[],
+        random: SeededRandom
+	) {
+		if (architecture.length < 2) {
+			throw new Error(
+				"MLP requires at least an input and output layer.",
+			);
+		}
 
-        this.output = new DenseLayer(
-            [
-                [0.2, -0.1, 0.3],
-                [-0.2, 0.4, -0.1],
-                [0.1, 0.2, 0.2],
-            ],
-            [0, 0, 0],
-        );
-    }
+		this.layers = [];
 
-    predict(input: number[]): number[] {
-        const hidden = applyRelu(
-            this.hidden.forward(input)
-        );
+		for (
+			let i = 0;
+			i < architecture.length - 1;
+			i++
+		) {
+			this.layers.push(
+				new DenseLayer(
+					architecture[i],
+					architecture[i + 1],
+					random,
+				),
+			);
+		}
+	}
 
-        return this.output.forward(hidden);
-    }
+	predict(input: number[]): number[] {
+		let activation = input;
 
-    train(input: number[], target: number[], learningRate: number): void {
-        // Forward pass
-        const hidden = applyRelu(
-            this.hidden.forward(input)
-        );
-        const output = this.output.forward(hidden);
+		for (
+			let layerIndex = 0;
+			layerIndex < this.layers.length;
+			layerIndex++
+		) {
+			const layer = this.layers[layerIndex];
 
-        // Compute loss (mean squared error)
-        const loss = output.map((o, i) => o - target[i]);
+			activation = layer.forward(
+				activation,
+			);
 
-        // Backpropagation (simplified for demonstration)
-        const outputGradients = loss.map(l => l * 2);
-        const hiddenGradients = this.output.weights.map((row, _) =>
-            row.reduce((sum, w, j) => sum + w * outputGradients[j], 0)
-        );
+			// ReLU on every layer except output.
+			if (
+				layerIndex <
+				this.layers.length - 1
+			) {
+				activation =
+					applyRelu(activation);
+			}
+		}
 
-        // Update weights and biases (simplified)
-        for (let i = 0; i < this.output.weights.length; i++) {
-            for (let j = 0; j < this.output.weights[i].length; j++) {
-                this.output.weights[i][j] -= learningRate * outputGradients[i] * hidden[j];
-            }
-            this.output.biases[i] -= learningRate * outputGradients[i];
-        }
+		return activation;
+	}
 
-        for (let i = 0; i < this.hidden.weights.length; i++) {
-            for (let j = 0; j < this.hidden.weights[i].length; j++) {
-                this.hidden.weights[i][j] -= learningRate * hiddenGradients[i] * input[j];
-            }
-            this.hidden.biases[i] -= learningRate * hiddenGradients[i];
-        }
-    }
+	predictProbabilities(
+		input: number[],
+	): number[] {
+		return softmax(
+			this.predict(input),
+		);
+	}
+
+	train(
+		input: number[],
+		target: number[],
+		learningRate: number,
+	): void {
+
+
+		const preActivations: number[][] = [];
+		const activations: number[][] = [];
+
+		let activation = input;
+
+		activations.push(input);
+
+		for (
+			let layerIndex = 0;
+			layerIndex < this.layers.length;
+			layerIndex++
+		) {
+			const layer = this.layers[layerIndex];
+
+			const preActivation =
+				layer.forward(activation);
+
+			preActivations.push(
+				preActivation,
+			);
+
+			const isOutputLayer =
+				layerIndex ===
+				this.layers.length - 1;
+
+			activation = isOutputLayer
+				? preActivation
+				: applyRelu(
+						preActivation,
+					);
+
+			activations.push(activation);
+		}
+
+		const output = activation;
+
+		const probabilities =
+			softmax(output);
+
+		let gradients =
+			probabilities.map(
+				(probability, i) =>
+					probability - target[i],
+			);
+
+		for (
+			let layerIndex =
+				this.layers.length - 1;
+			layerIndex >= 0;
+			layerIndex--
+		) {
+			const layer =
+				this.layers[layerIndex];
+
+			const layerInput =
+				activations[layerIndex];
+
+			for (
+				let neuronIndex = 0;
+				neuronIndex <
+				layer.weights.length;
+				neuronIndex++
+			) {
+				for (
+					let inputIndex = 0;
+					inputIndex <
+					layer.weights[
+						neuronIndex
+					].length;
+					inputIndex++
+				) {
+					layer.weights[
+						neuronIndex
+					][inputIndex] -=
+						learningRate *
+						gradients[
+							neuronIndex
+						] *
+						layerInput[
+							inputIndex
+						];
+				}
+
+				layer.biases[
+					neuronIndex
+				] -=
+					learningRate *
+					gradients[
+						neuronIndex
+					];
+			}
+
+			if (layerIndex === 0) {
+				break;
+			}
+
+			const previousLayerSize =
+				this.layers[
+					layerIndex - 1
+				].weights.length;
+
+			const previousGradients =
+				new Array(
+					previousLayerSize,
+				).fill(0);
+
+			for (
+				let previousNeuron = 0;
+				previousNeuron <
+				previousLayerSize;
+				previousNeuron++
+			) {
+				for (
+					let neuronIndex = 0;
+					neuronIndex <
+					layer.weights.length;
+					neuronIndex++
+				) {
+					previousGradients[
+						previousNeuron
+					] +=
+						gradients[
+							neuronIndex
+						] *
+						layer.weights[
+							neuronIndex
+						][previousNeuron];
+				}
+			}
+
+			const previousPreActivation =
+				preActivations[
+					layerIndex - 1
+				];
+
+			const derivative =
+				reluDerivative(
+					previousPreActivation,
+				);
+
+			gradients =
+				previousGradients.map(
+					(gradient, i) =>
+						gradient *
+						derivative[i],
+				);
+		}
+	}
 }

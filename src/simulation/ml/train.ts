@@ -1,6 +1,7 @@
 // src/ml/train.ts
 
 import { MLP } from "./models";
+import { SeededRandom } from "../agents";
 
 export type TradingAction = "SELL" | "HOLD" | "BUY";
 
@@ -20,6 +21,8 @@ export interface TrainingOptions {
 		loss: number,
 		accuracy: number,
 	) => void;
+
+	random: SeededRandom;
 }
 
 export interface TrainingResult {
@@ -79,11 +82,11 @@ function argmax(values: number[]): number {
 	return bestIndex;
 }
 
-function shuffle<T>(values: T[]): T[] {
+function shuffle<T>(values: T[], random: SeededRandom): T[] {
 	const result = [...values];
 
 	for (let i = result.length - 1; i > 0; i -= 1) {
-		const j = Math.floor(Math.random() * (i + 1));
+		const j = Math.floor(random.next() * (i + 1));
 
 		[result[i], result[j]] = [
 			result[j],
@@ -97,8 +100,9 @@ function shuffle<T>(values: T[]): T[] {
 export function train_test_split<T>(
     data: T[],
     testSize: number,
+    random: SeededRandom,
 ): [T[], T[]] {
-    const shuffled = shuffle(data);
+    const shuffled = shuffle(data, random);
     const splitIndex = Math.floor(shuffled.length * (1 - testSize));
     return [
         shuffled.slice(0, splitIndex),
@@ -136,7 +140,7 @@ export function train(
 	) {
 		const examples = options.shuffle === false
 			? dataset
-			: shuffle(dataset);
+			: shuffle(dataset, options.random);
 
 		let totalLoss = 0;
 		let correct = 0;
@@ -249,7 +253,7 @@ export function train_test(model: MLP, dataset: TrainingExample[], options: Trai
         accuracy: number;
     };
 } {
-    const [trainSet, testSet] = train_test_split(dataset, testSize);
+    const [trainSet, testSet] = train_test_split(dataset, testSize, options.random);
 
     const trainResult = train(model, trainSet, options);
     const testResult = test(model, testSet);

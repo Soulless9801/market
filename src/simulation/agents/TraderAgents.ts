@@ -63,7 +63,7 @@ export interface ImbalanceTraderAgentOptions {
 
 export type MLTraderAgentOptions = ImbalanceTraderAgentOptions; // placeholder for now, can be extended later
 
-class SeededRandom {
+export class SeededRandom {
 	private state: number;
 
 	constructor(seed: number) {
@@ -920,7 +920,7 @@ export class MLTraderAgent implements TraderAgent {
 	}
 
 	private resolveSide(context: AgentSimulatorContext): "BUY" | "SELL" {
-		const model = new MLP();
+		const model = new MLP([4, 8, 3], this.random);
 		const input = buildFeatures(context);
 		const output = model.predict(input);
 		return output[0] > output[1] ? "BUY" : "SELL";
