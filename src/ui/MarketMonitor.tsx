@@ -6,7 +6,7 @@ import { buildAgents, Simulator } from "../simulation";
 import { buildMarketViewModel, type MarketViewModel } from "./ViewModel";
 import { calculateMidPrice } from "../engine";
 
-const DEFAULT_SEED = 7;
+const DEFAULT_SEED = 15;
 const DEFAULT_REFERENCE_PRICE = 100;
 
 function createSimulator(seed: number): Simulator { // initialize a new simulator

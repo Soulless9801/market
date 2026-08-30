@@ -216,9 +216,9 @@ export function buildRandomAgents(seed: number, referencePrice = 100, count = 10
 	for (let i = 0; i < count; i++) {
 		const agentSpin = random.next();
 		if (agentSpin < 0.2) agents.push(randomMarketMakerAgent(`mm-${i}`, seed + i, referencePrice));
-		else if (agentSpin < 0.5) agents.push(randomRetailTraderAgent(`retail-${i}`, seed + i, referencePrice));
-		else if (agentSpin < 0.7) agents.push(randomMomentumTraderAgent(`momentum-${i}`, seed + i, referencePrice));
-		else if (agentSpin < 0.9) agents.push(randomMeanReversionTraderAgent(`mean-reversion-${i}`, seed + i, referencePrice));
+		else if (agentSpin < 0.6) agents.push(randomRetailTraderAgent(`retail-${i}`, seed + i, referencePrice));
+		else if (agentSpin < 0.75) agents.push(randomMomentumTraderAgent(`momentum-${i}`, seed + i, referencePrice));
+		else if (agentSpin < 0.90) agents.push(randomMeanReversionTraderAgent(`mean-reversion-${i}`, seed + i, referencePrice));
 		else agents.push(randomImbalanceTraderAgent(`imbalance-${i}`, seed + i, referencePrice));
 	}
 	return agents;
@@ -371,16 +371,10 @@ export class RetailTraderAgent implements TraderAgent {
 
 export function randomRetailTraderAgent(id: string, seed: number, referencePrice = 100): RetailTraderAgent {
 	const random = new SeededRandom(seed);
-	const biasSpin = random.next();
-	const bias: AgentSideBias = biasSpin < 0.4 ? "BUY" : biasSpin < 0.8 ? "SELL" : "RANDOM";
-	const executionStyleSpin = random.next();
-	let executionStyle: ExecutionStyle = "RANDOM";
-	if (bias === "BUY") executionStyle = executionStyleSpin < 0.7 ? "AGGRESSIVE" : "PASSIVE";
-	if (bias === "SELL") executionStyle = executionStyleSpin < 0.7 ? "PASSIVE" : "AGGRESSIVE";
 	return new RetailTraderAgent(id, {
 		referencePrice,
-		bias,
-		executionStyle,
+		bias: "RANDOM",
+		executionStyle: "AGGRESSIVE",
 		spread: random.next() * 2 + 1,
 		quantity: Math.floor(random.next() * 10) + 1,
 		maxPriceOffset: random.next() * 1 + 0.5,
