@@ -2,8 +2,7 @@
 
 import { MLP } from "./models";
 import { SeededRandom } from "../agents";
-
-export type TradingAction = "SELL" | "HOLD" | "BUY";
+import type { TradingAction } from "./types";
 
 export interface TrainingExample {
 	features: number[];
@@ -31,6 +30,11 @@ export interface TrainingResult {
 	finalAccuracy: number;
 	lossHistory: number[];
 	accuracyHistory: number[];
+}
+
+export interface TestResult {
+	loss: number;
+	accuracy: number;
 }
 
 const ACTIONS: TradingAction[] = [
@@ -248,10 +252,7 @@ export function test(model: MLP, dataset: TrainingExample[]): {
 
 export function train_test(model: MLP, dataset: TrainingExample[], options: TrainingOptions, testSize: number): {
     trainResult: TrainingResult;
-    testResult: {
-        loss: number;
-        accuracy: number;
-    };
+    testResult: TestResult;
 } {
     const [trainSet, testSet] = train_test_split(dataset, testSize, options.random);
 
