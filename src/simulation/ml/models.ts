@@ -1,5 +1,19 @@
 import { SeededRandom } from "../agents";
 
+export interface Model {
+	predict(input: number[]): number[];
+
+	train(
+		input: number[],
+		target: number[],
+		learningRate: number,
+	): void;
+
+	toJSON(): string;
+
+	fromJSON(json: string): void;
+}
+
 export class DenseLayer {
 	weights: number[][];
 	biases: number[];
@@ -84,7 +98,7 @@ function softmax(values: number[]): number[] {
 	);
 }
 
-export class MLP {
+export class MLP implements Model {
 	private readonly layers: DenseLayer[];
 
 	constructor(
@@ -302,6 +316,80 @@ export class MLP {
 						gradient *
 						derivative[i],
 				);
+		}
+	}
+
+	toJSON(): string {
+		const architecture = this.layers.map(
+			(layer) => layer.weights[0].length,
+		);
+
+		architecture.push(
+			this.layers[
+				this.layers.length - 1
+			].weights.length,
+		);
+
+		const weights = this.layers.map(
+			(layer) => layer.weights,
+		);
+
+		const biases = this.layers.map(
+			(layer) => layer.biases,
+		);
+
+		return JSON.stringify({
+			architecture,
+			weights,
+			biases,
+		}, null, 2);
+	}
+
+	fromJSON(json: string): void {
+		const data = JSON.parse(json);
+
+		if (
+			!data.architecture ||
+			!data.weights ||
+			!data.biases
+		) {
+			throw new Error(
+				"Invalid model JSON.",
+			);
+		}
+
+		const architecture: number[] =
+			data.architecture;
+
+		if (
+			architecture.length !==
+			this.layers.length + 1
+		) {
+			throw new Error(
+				"Model architecture does not match.",
+			);
+		}
+
+		for (
+			let i = 0;
+			i < this.layers.length;
+			i++
+		) {
+			const layer = this.layers[i];
+
+			if (
+				layer.weights.length !==
+					data.weights[i].length ||
+				layer.weights[0].length !==
+					data.weights[i][0].length
+			) {
+				throw new Error(
+					"Model weights do not match.",
+				);
+			}
+
+			layer.weights = data.weights[i];
+			layer.biases = data.biases[i];
 		}
 	}
 }

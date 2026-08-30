@@ -8,14 +8,3 @@ export function buildFeatures(context: ObservableSimulatorContext): number[] {
         context.orderImbalance.imbalance, // imbalance
     ];
 }
-
-import { writeFile } from 'fs/promises';
-
-export async function writeToFile(data: string, filePath: string): Promise<void> {
-    try {
-        await writeFile(filePath, data, 'utf-8');
-        console.log('File written successfully.');
-    } catch (error) {
-        console.error('Error writing file:', error);
-    }
-}

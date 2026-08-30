@@ -1,7 +1,7 @@
 import type { NewOrderRequest, OrderBookSnapshot } from "../../engine";
 import type { AgentSimulatorContext } from "../simulator";
-import { buildFeatures } from "../ml";
-import { MLP } from "../ml";
+import { buildFeatures, createSideResolver } from "../ml";
+import type { Model } from "../ml/models";
 
 export type AgentSideBias = "BUY" | "SELL" | "RANDOM";
 // Passive orders provide liquidity, while aggressive orders try to consume existing liquidity.
@@ -893,6 +893,8 @@ export class MLTraderAgent implements TraderAgent {
 	private readonly maxPriceOffset: number;
 	private readonly random: SeededRandom;
 
+	private readonly model: Model;
+
 	constructor(id: string, options: MLTraderAgentOptions) {
 		this.id = id;
 		// this.referencePrice = options.referencePrice;
@@ -901,6 +903,7 @@ export class MLTraderAgent implements TraderAgent {
 		this.executionStyle = options.executionStyle ?? "AGGRESSIVE";
 		this.maxPriceOffset = Math.max(0, options.maxPriceOffset ?? 1);
 		this.random = new SeededRandom(options.seed);
+		this.model = createSideResolver(this.random);
 	}
 
 	step(context: AgentSimulatorContext): NewOrderRequest[] {
@@ -920,9 +923,8 @@ export class MLTraderAgent implements TraderAgent {
 	}
 
 	private resolveSide(context: AgentSimulatorContext): "BUY" | "SELL" {
-		const model = new MLP([4, 8, 3], this.random);
 		const input = buildFeatures(context);
-		const output = model.predict(input);
+		const output = this.model.predict(input);
 		return output[0] > output[1] ? "BUY" : "SELL";
 	}
 

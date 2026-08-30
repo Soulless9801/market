@@ -1,6 +1,6 @@
 // src/ml/train.ts
 
-import { MLP } from "./models";
+import type { Model } from "./models";
 import { SeededRandom } from "../agents";
 import type { TradingAction } from "./types";
 
@@ -115,7 +115,7 @@ export function train_test_split<T>(
 }
 
 export function train(
-	model: MLP,
+	model: Model,
 	dataset: TrainingExample[],
 	options: TrainingOptions,
 ): TrainingResult {
@@ -210,7 +210,7 @@ export function train(
 	};
 }
 
-export function test(model: MLP, dataset: TrainingExample[]): {
+export function test(model: Model, dataset: TrainingExample[]): {
     loss: number;
     accuracy: number;
 } {
@@ -250,7 +250,7 @@ export function test(model: MLP, dataset: TrainingExample[]): {
     };
 }
 
-export function train_test(model: MLP, dataset: TrainingExample[], options: TrainingOptions, testSize: number): {
+export function train_test(model: Model, dataset: TrainingExample[], options: TrainingOptions, testSize: number): {
     trainResult: TrainingResult;
     testResult: TestResult;
 } {

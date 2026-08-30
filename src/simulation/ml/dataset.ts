@@ -1,6 +1,6 @@
 import type { TrainingExample } from './train';
 import { Simulator } from '../simulator';
-import { buildFeatures, writeToFile } from './features';
+import { buildFeatures } from './features';
 import { buildDefaultAgents } from '../agents/TraderAgents';
 
 const tradeDepth = 20;
@@ -49,10 +49,4 @@ export function generate(options: DatasetOptions): TrainingExample[] {
     }
 
     return examples;
-}
-
-export function download(options: DatasetOptions, filePath: string): void {
-    const examples = generate(options);
-    const dataString = JSON.stringify(examples, null, 2);
-    writeToFile(dataString, filePath);
 }

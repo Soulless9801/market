@@ -20,6 +20,17 @@ function generateTrainingOptions(seed: number): TrainingOptions {
     };
 }
 
+import { writeFile } from 'fs/promises';
+
+async function writeToFile(data: string, filePath: string): Promise<void> {
+    try {
+        await writeFile(filePath, data, 'utf-8');
+        console.log('File written successfully.');
+    } catch (error) {
+        console.error('Error writing file:', error);
+    }
+}
+
 describe("MLP", () => {
     it("should predict output for given input", () => {
         const model = createModel(42);
@@ -84,7 +95,7 @@ describe("MLP", () => {
         expect(testResult.accuracy).toBeGreaterThan(0);
         expect(testResult.accuracy).toBeLessThanOrEqual(1);
     });
-    it("testing the model should return reasonable results", () => {
+    it("testing the model should return reasonable results", async () => {
         const model = createModel(42);
 
         const dataset: TrainingExample[] = generateDataset();
@@ -100,5 +111,7 @@ describe("MLP", () => {
         // console.log(model);
 
         expect(testResult.accuracy).toBeGreaterThan(0.5);
+
+        await writeToFile(model.toJSON(), "model.json");
     });
 });
