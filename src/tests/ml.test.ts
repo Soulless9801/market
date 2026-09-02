@@ -3,7 +3,7 @@ import { MLP, SeededRandom } from "../simulation";
 import { generate, train, test, train_test } from '../simulation';
 import type { TrainingExample, TrainingOptions } from '../simulation';
 
-function createModel(seed: number): MLP {
+function createSideModel(seed: number): MLP {
     const random = new SeededRandom(seed);
     return new MLP([4, 16, 16, 3], random);
 }
@@ -33,7 +33,7 @@ async function writeToFile(data: string, filePath: string): Promise<void> {
 
 describe("MLP", () => {
     it("should predict output for given input", () => {
-        const model = createModel(42);
+        const model = createSideModel(42);
 
         const output = model.predict([
             0.01,   // short return
@@ -45,7 +45,7 @@ describe("MLP", () => {
         expect(output).toHaveLength(3);
     });
     it("training should reduce loss over epochs", () => {
-        const model = createModel(42);
+        const model = createSideModel(42);
 
         const dataset: TrainingExample[] = generateDataset();
 
@@ -58,7 +58,7 @@ describe("MLP", () => {
         expect(result.finalLoss).toBeLessThan(result.lossHistory[0]);
     });
     it ("should achieve reasonable accuracy on a small dataset", () => {
-        const model = createModel(42);
+        const model = createSideModel(42);
 
         const dataset: TrainingExample[] = generateDataset();
 
@@ -71,7 +71,7 @@ describe("MLP", () => {
         expect(result.finalAccuracy).toBeGreaterThan(0.5);
     });
     it("expect testing to return loss and accuracy", () => {
-        const model = createModel(42);
+        const model = createSideModel(42);
 
         const dataset: TrainingExample[] = generateDataset();
         const options = generateTrainingOptions(42);
@@ -82,7 +82,7 @@ describe("MLP", () => {
         expect(result.finalAccuracy).toBeGreaterThan(0.5);
     });
     it("expect testing to return loss and accuracy", () => {
-        const model = createModel(42);
+        const model = createSideModel(42);
 
         const dataset: TrainingExample[] = generateDataset();
 
@@ -96,7 +96,7 @@ describe("MLP", () => {
         expect(testResult.accuracy).toBeLessThanOrEqual(1);
     });
     it("testing the model should return reasonable results", async () => {
-        const model = createModel(42);
+        const model = createSideModel(42);
 
         const dataset: TrainingExample[] = generateDataset();
 
@@ -112,6 +112,6 @@ describe("MLP", () => {
 
         expect(testResult.accuracy).toBeGreaterThan(0.5);
 
-        await writeToFile(model.toJSON(), "model.json");
+        await writeToFile(model.toJSON(), "../model.json");
     });
 });

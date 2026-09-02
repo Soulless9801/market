@@ -1,11 +1,13 @@
 import type { NewOrderRequest, OrderBookSnapshot } from "../../engine";
 import type { AgentSimulatorContext } from "../simulator";
-import { buildFeatures, createSideResolver } from "../ml";
+import { buildFeatures, createPriceResolver, createSideResolver } from "../ml";
 import type { Model } from "../ml/models";
 
 export type AgentSideBias = "BUY" | "SELL" | "RANDOM";
+export type AgentSide = "BUY" | "SELL";
 // Passive orders provide liquidity, while aggressive orders try to consume existing liquidity.
 export type ExecutionStyle = "PASSIVE" | "AGGRESSIVE" | "RANDOM";
+export type ExecutionBehavior = "PASSIVE" | "AGGRESSIVE";
 
 export interface TraderAgent {
 	id: string;
@@ -323,19 +325,19 @@ export class RetailTraderAgent implements TraderAgent {
 		];
 	}
 
-	private resolveSide(): "BUY" | "SELL" {
+	private resolveSide(): AgentSide {
 		if (this.bias === "BUY" || this.bias === "SELL") {
 			return this.bias;
 		}
 		return this.random.next() < 0.5 ? "BUY" : "SELL";
 	}
 
-	private resolveExecutionStyle(): "PASSIVE" | "AGGRESSIVE" {
+	private resolveExecutionStyle(): ExecutionBehavior {
 		if (this.executionStyle !== "RANDOM") return this.executionStyle;
 		return this.random.next() < 0.5 ? "PASSIVE" : "AGGRESSIVE";
 	}
 
-	private calculateOrderPrice(side: "BUY" | "SELL", executionStyle: "PASSIVE" | "AGGRESSIVE", midPrice: number, snapshot: OrderBookSnapshot): number {
+	private calculateOrderPrice(side: AgentSide, executionStyle: ExecutionBehavior, midPrice: number, snapshot: OrderBookSnapshot): number {
 		const bestBid = snapshot.bids[0]?.price;
 		const bestAsk = snapshot.asks[0]?.price;
 		const halfSpread = this.spread / 2;
@@ -441,7 +443,7 @@ export class MomentumTraderAgent implements TraderAgent {
 
 	private resolveSide(
 		context: AgentSimulatorContext,
-	): "BUY" | "SELL" {
+	): AgentSide {
 		const history = context.recentMidPriceSeries;
 
 		if (history.length < 2) {
@@ -473,7 +475,7 @@ export class MomentumTraderAgent implements TraderAgent {
 	}
 
 	private calculateOrderPrice(
-		side: "BUY" | "SELL",
+		side: AgentSide,
 		context: AgentSimulatorContext,
 	): number {
 		const bestBid =
@@ -612,7 +614,7 @@ export class MeanReversionTraderAgent
 
 	private resolveSide(
 		context: AgentSimulatorContext,
-	): "BUY" | "SELL" {
+	): AgentSide {
 		const history =
 			context.recentMidPriceSeries;
 
@@ -648,7 +650,7 @@ export class MeanReversionTraderAgent
 	}
 
 	private calculateOrderPrice(
-		side: "BUY" | "SELL",
+		side: AgentSide,
 		context: AgentSimulatorContext,
 	): number {
 		const bestBid =
@@ -768,7 +770,7 @@ export class ImbalanceTraderAgent
 			context.orderImbalance
 				.imbalance;
 
-		let side: "BUY" | "SELL";
+		let side: AgentSide;
 
 		if (imbalance >= this.buyThreshold) {
 			side = "BUY";
@@ -809,7 +811,7 @@ export class ImbalanceTraderAgent
 	}
 
 	private calculateOrderPrice(
-		side: "BUY" | "SELL",
+		side: AgentSide,
 		context: AgentSimulatorContext,
 	): number {
 		const bestBid =
@@ -887,7 +889,8 @@ export class MLTraderAgent implements TraderAgent {
 	private readonly maxPriceOffset: number;
 	private readonly random: SeededRandom;
 
-	private readonly model: Model;
+	private readonly side_model: Model;
+	private readonly price_model: Model;
 
 	constructor(id: string, options: MLTraderAgentOptions) {
 		this.id = id;
@@ -897,7 +900,8 @@ export class MLTraderAgent implements TraderAgent {
 		this.executionStyle = options.executionStyle ?? "AGGRESSIVE";
 		this.maxPriceOffset = Math.max(0, options.maxPriceOffset ?? 1);
 		this.random = new SeededRandom(options.seed);
-		this.model = createSideResolver(this.random);
+		this.side_model = createSideResolver(this.random);
+		this.price_model = createPriceResolver(this.random);
 	}
 
 	step(context: AgentSimulatorContext): NewOrderRequest[] {
@@ -916,13 +920,13 @@ export class MLTraderAgent implements TraderAgent {
 		];
 	}
 
-	private resolveSide(context: AgentSimulatorContext): "BUY" | "SELL" {
+	private resolveSide(context: AgentSimulatorContext): AgentSide {
 		const input = buildFeatures(context);
-		const output = this.model.predict(input);
+		const output = this.side_model.predict(input);
 		return output[0] > output[1] ? "BUY" : "SELL";
 	}
 
-	private calculateOrderPrice(side: "BUY" | "SELL", context: AgentSimulatorContext): number {
+	private calculateOrderPrice(side: AgentSide, context: AgentSimulatorContext): number {
 		const bestBid = context.orderBook.bids[0]?.price;
 		const bestAsk = context.orderBook.asks[0]?.price;
 		const offset = this.random.next() * this.maxPriceOffset;
