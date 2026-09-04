@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactElement } from "react";
 
-import type { OrderBookSnapshot } from "../engine";
-import { buildAgents, Simulator } from "../simulation";
+import type { OrderBookSnapshot } from "@/engine";
+import { buildAgents, Simulator } from "@/simulation";
 import { buildMarketViewModel, type MarketViewModel } from "./ViewModel";
-import { calculateMidPrice } from "../engine";
+import { calculateMidPrice } from "@/engine";
 
 const DEFAULT_SEED = 15;
 const DEFAULT_REFERENCE_PRICE = 100;

@@ -1,12 +1,12 @@
-import { MatchingEngine } from "../matching";
-import { OrderBook } from "../orderbook";
+import { MatchingEngine } from "@/engine/matching";
+import { OrderBook } from "@/engine/orderbook";
 import type {
 	CancelResult,
 	ExecutionReport,
 	IncomingOrder,
 	NewOrderRequest,
 	TradeEvent,
-} from "../orders";
+} from "@/engine/orders";
 
 export class Exchange {
 	private readonly orderBook = new OrderBook();

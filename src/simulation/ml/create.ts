@@ -1,23 +1,27 @@
 import type { Model } from "./models";
-import type { SeededRandom } from "../agents";
+import type { SeededRandom } from "@/simulation/agents";
 import { MLP } from "./models";
 
-import data from "../../model.json" with { type: "json" };
+import side_data from "@/model.json" with { type: "json" };
 
 export function createSideResolver(random: SeededRandom): Model {
-    const architecture = [4, 16, 16, 3];
+    
+    const side_json = side_data;
+    
+    const architecture = side_json.architecture;
+
     const model = new MLP(architecture, random);
 
-    model.fromJSON(JSON.stringify(data));
+    model.fromJSON(JSON.stringify(side_json));
 
     return model;
 }
 
 export function createPriceResolver(random: SeededRandom): Model {
+    
     const architecture = [4, 16, 16, 3];
-    const model = new MLP(architecture, random);
 
-    model.fromJSON(JSON.stringify(data));
+    const model = new MLP(architecture, random);
 
     return model;
 }

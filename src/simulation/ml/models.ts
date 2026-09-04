@@ -1,4 +1,4 @@
-import { SeededRandom } from "../agents";
+import { SeededRandom } from "@/simulation/agents";
 
 export interface Model {
 	predict(input: number[]): number[];

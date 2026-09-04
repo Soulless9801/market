@@ -6,9 +6,9 @@ import {
 	MomentumTraderAgent,
 	MeanReversionTraderAgent,
 	ImbalanceTraderAgent,
-} from "../simulation";
+} from "@/simulation";
 
-import type { AgentSimulatorContext } from "../simulation";
+import type { AgentSimulatorContext } from "@/simulation";
 
 function makeContext(
 	overrides: Partial<AgentSimulatorContext> = {},

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { Exchange } from "../engine";
+import { Exchange } from "@/engine";
 import {
 	buildDefaultAgents,
 	MarketMakerAgent,
@@ -11,8 +11,8 @@ import {
 	// ImbalanceTraderAgent,
 	// MeanReversionTraderAgent,
 	// MLTraderAgent,
-} from "../simulation";
-import type { ObservableSimulatorContext, AgentSimulatorContext } from "../simulation";
+} from "@/simulation";
+import type { ObservableSimulatorContext, AgentSimulatorContext } from "@/simulation";
 
 function createObservableContext(
 	exchange: Exchange,
@@ -34,12 +34,12 @@ function createObservableContext(
 			: 0;
 
 	const bidVolume = orderBook.bids.reduce(
-		(sum, level) => sum + level.quantity,
+		(sum: number, level: any) => sum + level.quantity,
 		0,
 	);
 
 	const askVolume = orderBook.asks.reduce(
-		(sum, level) => sum + level.quantity,
+		(sum: number, level: any) => sum + level.quantity,
 		0,
 	);
 

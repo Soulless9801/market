@@ -1,15 +1,13 @@
-import { calculateRecentOrderImbalance, Exchange } from "../../engine";
 import type { 
 	ExecutionReport,
 	LimitedTradeEvent,
 	OrderBookSnapshot, 
 	OrderImbalance, 
 	TradeEvent 
-} from "../../engine";
-import type { SimulationEvent } from "../events";
-import type { TraderAgent } from "../agents";
-import { PortfolioManager } from "../portfolio";
-import type { PortfolioSnapshot } from "../portfolio";
+} from "@/engine";
+import { calculateRecentOrderImbalance, Exchange } from "@/engine";
+import type { SimulationEvent, TraderAgent, PortfolioSnapshot } from "@/simulation";
+import { PortfolioManager } from "@/simulation";
 
 export interface SimulatorOptions {
 	exchange?: Exchange;

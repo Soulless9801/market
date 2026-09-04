@@ -4,7 +4,7 @@ import type {
 	OrderBookSnapshot,
 	RestingOrder,
 	Side,
-} from "../orders";
+} from "@/engine/orders";
 import { OrderedStatisticTree } from "./OrderedStatisticTree";
 
 interface SideState {

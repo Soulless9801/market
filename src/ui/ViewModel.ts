@@ -1,10 +1,10 @@
-import type { OrderBookSnapshot, LimitedTradeEvent, OrderImbalance, TradeEvent } from "../engine";
-import type { PortfolioSnapshot } from "../simulation/portfolio";
+import type { OrderBookSnapshot, LimitedTradeEvent, OrderImbalance, TradeEvent } from "@/engine";
+import type { PortfolioSnapshot } from "@/simulation/portfolio";
 import {
 	calculateMidPrice,
 	calculateSpread,
 	calculateRecentOrderImbalance,
-} from "../engine";
+} from "@/engine";
 
 export interface BookRow {
 	side: "BID" | "ASK";

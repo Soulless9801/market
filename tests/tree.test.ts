@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { OrderedStatisticTree } from "../engine";
+import { OrderedStatisticTree } from "@/engine";
 
 describe("OrderedStatisticTree", () => {
 	it("maintains sorted order, rank-select, and deletions", () => {

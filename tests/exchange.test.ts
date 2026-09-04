@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { Exchange } from "../engine";
+import { Exchange } from "@/engine";
 
 describe("exchange", () => {
 	it("matches crossing limit orders at resting order price and leaves residual quantity", () => {

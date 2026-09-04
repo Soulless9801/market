@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { Exchange } from "../engine";
-import { calculateMidPrice } from "../engine";
-import { PortfolioManager } from "../simulation";
+import { Exchange } from "@/engine";
+import { calculateMidPrice } from "@/engine";
+import { PortfolioManager } from "@/simulation";
 
 describe("PortfolioManager", () => {
 

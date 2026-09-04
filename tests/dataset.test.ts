@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { generate } from '../simulation';
+import { generate } from '../src/simulation';
     
 // import { writeFile } from 'fs/promises';
 

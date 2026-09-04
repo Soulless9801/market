@@ -1,5 +1,5 @@
 {
-	"compilerOptions": {
+    "compilerOptions": {
 
 		"paths": {
 			"@/*": ["./src/*"]
@@ -9,7 +9,7 @@
 		"target": "es2023",
 		"lib": ["ES2023", "DOM"],
 		"module": "esnext",
-		"types": ["vite/client", "node"],
+		"types": ["vitest/globals", "node"],
 		"allowArbitraryExtensions": true,
 		"skipLibCheck": true,
 
@@ -33,5 +33,5 @@
 		"erasableSyntaxOnly": true,
 		"noFallthroughCasesInSwitch": true,
 	},
-	"include": ["src/**/*"],
+    "include": ["tests/**/*"]
 }

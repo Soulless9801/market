@@ -1,7 +1,7 @@
 // src/ml/train.ts
 
 import type { Model } from "./models";
-import { SeededRandom } from "../agents";
+import { SeededRandom } from "@/simulation/agents";
 import type { TradingAction } from "./types";
 
 export interface TrainingExample {

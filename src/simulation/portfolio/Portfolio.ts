@@ -1,6 +1,6 @@
-import { calculateMidPrice } from "../../engine/orderbook";
-import type { TradeEvent } from "../../engine/orders";
-import type { OrderBookSnapshot } from "../../engine/orders";
+import { calculateMidPrice } from "@/engine/orderbook";
+import type { TradeEvent } from "@/engine/orders";
+import type { OrderBookSnapshot } from "@/engine/orders";
 
 export interface Portfolio {
     participantId: string;

@@ -1,4 +1,4 @@
-import type { ExecutionReport } from "../../engine";
+import type { ExecutionReport } from "@/engine";
 
 export type SimulationEventType = "agent-step" | "order-submitted" | "trade";
 

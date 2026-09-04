@@ -1,7 +1,6 @@
-import type { NewOrderRequest, OrderBookSnapshot } from "../../engine";
-import type { AgentSimulatorContext } from "../simulator";
-import { buildFeatures, createPriceResolver, createSideResolver } from "../ml";
-import type { Model } from "../ml/models";
+import type { NewOrderRequest, OrderBookSnapshot } from "@/engine";
+import type { AgentSimulatorContext, Model } from "@/simulation";
+import { buildFeatures, createSideResolver } from "@/simulation";
 
 export type AgentSideBias = "BUY" | "SELL" | "RANDOM";
 export type AgentSide = "BUY" | "SELL";
@@ -890,7 +889,7 @@ export class MLTraderAgent implements TraderAgent {
 	private readonly random: SeededRandom;
 
 	private readonly side_model: Model;
-	private readonly price_model: Model;
+	// private readonly price_model: Model;
 
 	constructor(id: string, options: MLTraderAgentOptions) {
 		this.id = id;
@@ -901,7 +900,7 @@ export class MLTraderAgent implements TraderAgent {
 		this.maxPriceOffset = Math.max(0, options.maxPriceOffset ?? 1);
 		this.random = new SeededRandom(options.seed);
 		this.side_model = createSideResolver(this.random);
-		this.price_model = createPriceResolver(this.random);
+		// this.price_model = createPriceResolver(this.random);
 	}
 
 	step(context: AgentSimulatorContext): NewOrderRequest[] {

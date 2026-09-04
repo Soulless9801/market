@@ -1,11 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { MLP, SeededRandom } from "../simulation";
-import { generate, train, test, train_test } from '../simulation';
-import type { TrainingExample, TrainingOptions } from '../simulation';
-
-function createSideModel(seed: number): MLP {
+import { MLP, SeededRandom } from "@/simulation";
+import { generate, train, test, train_test } from '@/simulation';
+import type { TrainingExample, TrainingOptions } from '@/simulation';
+    
+function createSideModel(seed: number, inp: number): MLP {
     const random = new SeededRandom(seed);
-    return new MLP([4, 16, 16, 3], random);
+    return new MLP([inp, 16, 16, 3], random);
 }
 
 function generateDataset(): TrainingExample[] {
@@ -33,7 +33,7 @@ async function writeToFile(data: string, filePath: string): Promise<void> {
 
 describe("MLP", () => {
     it("should predict output for given input", () => {
-        const model = createSideModel(42);
+        const model = createSideModel(42, 4);
 
         const output = model.predict([
             0.01,   // short return
@@ -45,9 +45,11 @@ describe("MLP", () => {
         expect(output).toHaveLength(3);
     });
     it("training should reduce loss over epochs", () => {
-        const model = createSideModel(42);
-
         const dataset: TrainingExample[] = generateDataset();
+
+        const inp = dataset[0].features.length;
+
+        const model = createSideModel(42, inp);
 
         const options = generateTrainingOptions(42);
 
@@ -58,9 +60,11 @@ describe("MLP", () => {
         expect(result.finalLoss).toBeLessThan(result.lossHistory[0]);
     });
     it ("should achieve reasonable accuracy on a small dataset", () => {
-        const model = createSideModel(42);
-
         const dataset: TrainingExample[] = generateDataset();
+
+        const inp = dataset[0].features.length;
+
+        const model = createSideModel(42, inp);
 
         const options = generateTrainingOptions(42);
 
@@ -71,9 +75,12 @@ describe("MLP", () => {
         expect(result.finalAccuracy).toBeGreaterThan(0.5);
     });
     it("expect testing to return loss and accuracy", () => {
-        const model = createSideModel(42);
-
         const dataset: TrainingExample[] = generateDataset();
+
+        const inp = dataset[0].features.length;
+
+        const model = createSideModel(42, inp);
+
         const options = generateTrainingOptions(42);
         const result = train(model, dataset, options);
 
@@ -82,9 +89,13 @@ describe("MLP", () => {
         expect(result.finalAccuracy).toBeGreaterThan(0.5);
     });
     it("expect testing to return loss and accuracy", () => {
-        const model = createSideModel(42);
 
-        const dataset: TrainingExample[] = generateDataset();
+        
+       const dataset: TrainingExample[] = generateDataset();
+
+        const inp = dataset[0].features.length;
+
+        const model = createSideModel(42, inp);
 
         const testResult = test(model, dataset);
 
@@ -96,9 +107,12 @@ describe("MLP", () => {
         expect(testResult.accuracy).toBeLessThanOrEqual(1);
     });
     it("testing the model should return reasonable results", async () => {
-        const model = createSideModel(42);
 
         const dataset: TrainingExample[] = generateDataset();
+
+        const inp = dataset[0].features.length;
+
+        const model = createSideModel(42, inp);
 
         const options = generateTrainingOptions(42);
 
@@ -111,7 +125,25 @@ describe("MLP", () => {
         // console.log(model);
 
         expect(testResult.accuracy).toBeGreaterThan(0.5);
+    });
+    it("actual training and testing should return reasonable results", async () => {
 
-        await writeToFile(model.toJSON(), "../model.json");
+        const dataset: TrainingExample[] = generateDataset();
+
+        const inp = dataset[0].features.length;
+
+        const model = createSideModel(42, inp);
+
+        const options = generateTrainingOptions(42);
+
+        const testP = 0.2;
+
+        const result = train_test(model, dataset, options, testP);
+        
+        // console.log(result.testResult.accuracy);
+
+        expect(result.testResult.accuracy).toBeGreaterThan(0.5);
+
+        await writeToFile(model.toJSON(), "./src/model.json");
     });
 });
