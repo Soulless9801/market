@@ -3,7 +3,7 @@ import type { AgentSimulatorContext, Model } from "@/simulation";
 import { buildFeatures, createSideResolver } from "@/simulation";
 
 export type AgentSideBias = "BUY" | "SELL" | "RANDOM";
-export type AgentSide = "BUY" | "SELL";
+export type AgentSide = "BUY" | "SELL" | "HOLD";
 // Passive orders provide liquidity, while aggressive orders try to consume existing liquidity.
 export type ExecutionStyle = "PASSIVE" | "AGGRESSIVE" | "RANDOM";
 export type ExecutionBehavior = "PASSIVE" | "AGGRESSIVE";
@@ -88,7 +88,7 @@ export function buildDefaultAgents(seed: number, referencePrice = 100): TraderAg
 			referencePrice,
 			spread: 2,
 			quantity: 8,
-			seed,
+			seed: seed + 1,
 			maxPriceOffset: 1,
 			bias: "BUY",
 			executionStyle: "AGGRESSIVE",
@@ -97,7 +97,7 @@ export function buildDefaultAgents(seed: number, referencePrice = 100): TraderAg
 			referencePrice,
 			spread: 2,
 			quantity: 8,
-			seed: seed + 1,
+			seed: seed + 2,
 			maxPriceOffset: 1,
 			bias: "SELL",
 			executionStyle: "PASSIVE",
@@ -106,7 +106,7 @@ export function buildDefaultAgents(seed: number, referencePrice = 100): TraderAg
 			referencePrice,
 			spread: 2,
 			quantity: 8,
-			seed: seed + 2,
+			seed: seed + 3,
 			maxPriceOffset: 1,
 			bias: "RANDOM",
 			executionStyle: "RANDOM",
@@ -115,7 +115,7 @@ export function buildDefaultAgents(seed: number, referencePrice = 100): TraderAg
 			referencePrice,
 			spread: 2,
 			quantity: 5,
-			seed: seed + 3,
+			seed: seed + 4,
 			lookback: 5,
 			momentumThreshold: 0.5,
 			executionStyle: "AGGRESSIVE",
@@ -125,7 +125,7 @@ export function buildDefaultAgents(seed: number, referencePrice = 100): TraderAg
 			referencePrice,
 			spread: 2,
 			quantity: 5,
-			seed: seed + 3,
+			seed: seed + 5,
 			lookback: 5,
 			momentumThreshold: 0.5,
 			executionStyle: "PASSIVE",
@@ -135,7 +135,7 @@ export function buildDefaultAgents(seed: number, referencePrice = 100): TraderAg
 			referencePrice,
 			spread: 2,
 			quantity: 5,
-			seed: seed + 3,
+			seed: seed + 6,
 			lookback: 5,
 			momentumThreshold: 0.5,
 			executionStyle: "RANDOM",
@@ -145,7 +145,7 @@ export function buildDefaultAgents(seed: number, referencePrice = 100): TraderAg
 			referencePrice,
 			spread: 2,
 			quantity: 5,
-			seed: seed + 4,
+			seed: seed + 7,
 			lookback: 5,
 			deviationThreshold: 0.5,
 			executionStyle: "AGGRESSIVE",
@@ -155,7 +155,7 @@ export function buildDefaultAgents(seed: number, referencePrice = 100): TraderAg
 			referencePrice,
 			spread: 2,
 			quantity: 5,
-			seed: seed + 4,
+			seed: seed + 8,
 			lookback: 5,
 			deviationThreshold: 0.5,
 			executionStyle: "RANDOM",
@@ -165,7 +165,7 @@ export function buildDefaultAgents(seed: number, referencePrice = 100): TraderAg
 			referencePrice,
 			spread: 2,
 			quantity: 5,
-			seed: seed + 4,
+			seed: seed + 9,
 			lookback: 5,
 			deviationThreshold: 0.5,
 			executionStyle: "PASSIVE",
@@ -175,7 +175,7 @@ export function buildDefaultAgents(seed: number, referencePrice = 100): TraderAg
 			referencePrice,
 			spread: 2,
 			quantity: 5,
-			seed: seed + 5,
+			seed: seed + 10,
 			buyThreshold: 0.65,
 			sellThreshold: 0.35,
 			executionStyle: "AGGRESSIVE",
@@ -185,7 +185,7 @@ export function buildDefaultAgents(seed: number, referencePrice = 100): TraderAg
 			referencePrice,
 			spread: 2,
 			quantity: 5,
-			seed: seed + 5,
+			seed: seed + 11,
 			buyThreshold: 0.65,
 			sellThreshold: 0.35,
 			executionStyle: "PASSIVE",
@@ -195,19 +195,19 @@ export function buildDefaultAgents(seed: number, referencePrice = 100): TraderAg
 			referencePrice,
 			spread: 2,
 			quantity: 5,
-			seed: seed + 5,
+			seed: seed + 12,
 			buyThreshold: 0.65,
 			sellThreshold: 0.35,
 			executionStyle: "RANDOM",
 			maxPriceOffset: 1,
 		}),
-		new MLTraderAgent("ml-1", {
-			referencePrice,
-			spread: 2,
-			quantity: 5,
-			seed: seed + 6,
-			maxPriceOffset: 1,
-		}),
+		// new MLTraderAgent("ml-1", {
+		// 	referencePrice,
+		// 	spread: 2,
+		// 	quantity: 5,
+		// 	seed: seed + 13,
+		// 	maxPriceOffset: 1,
+		// }),
 	];
 }
 
@@ -309,6 +309,7 @@ export class RetailTraderAgent implements TraderAgent {
 	step(context: AgentSimulatorContext): NewOrderRequest[] {
 		const midPrice = context.midPrice ?? this.referencePrice;
 		const side = this.resolveSide();
+		if (side === "HOLD") return [];
 		const executionStyle = this.resolveExecutionStyle();
 		const price = this.calculateOrderPrice(side, executionStyle, midPrice, context.orderBook);
 		const quantity = Math.max(1, Math.round(this.quantity + this.random.next() * 3));
@@ -416,6 +417,7 @@ export class MomentumTraderAgent implements TraderAgent {
 
 	step(context: AgentSimulatorContext): NewOrderRequest[] {
 		const side = this.resolveSide(context);
+		if (side === "HOLD") return [];
 		const price = this.calculateOrderPrice(
 			side,
 			context,
@@ -536,7 +538,7 @@ export function randomMomentumTraderAgent(id: string, seed: number, referencePri
 		momentumThreshold: random.next() * 1 + 0.5,
 		executionStyle: random.next() < 0.5 ? "AGGRESSIVE" : "PASSIVE",
 		maxPriceOffset: random.next() * 1 + 0.5,
-		seed,
+		seed: seed,
 	});
 }
 
@@ -585,7 +587,7 @@ export class MeanReversionTraderAgent
 		context: AgentSimulatorContext,
 	): NewOrderRequest[] {
 		const side = this.resolveSide(context);
-
+		if (side === "HOLD") return [];
 		const price =
 			this.calculateOrderPrice(
 				side,
@@ -905,6 +907,7 @@ export class MLTraderAgent implements TraderAgent {
 
 	step(context: AgentSimulatorContext): NewOrderRequest[] {
 		const side = this.resolveSide(context);
+		if (side === "HOLD") return [];
 		const price = this.calculateOrderPrice(side, context);
 		const quantity = Math.max(1, Math.round(this.quantity + this.random.next() * 3));
 
@@ -922,7 +925,8 @@ export class MLTraderAgent implements TraderAgent {
 	private resolveSide(context: AgentSimulatorContext): AgentSide {
 		const input = buildFeatures(context);
 		const output = this.side_model.predict(input);
-		return output[0] > output[1] ? "BUY" : "SELL";
+		const mx = Math.max(...output);
+		return mx === output[0] ? "BUY" : mx === output[2] ? "SELL" : "HOLD"; // buy hold sell
 	}
 
 	private calculateOrderPrice(side: AgentSide, context: AgentSimulatorContext): number {

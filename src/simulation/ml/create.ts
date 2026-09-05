@@ -1,8 +1,8 @@
 import type { Model } from "./models";
-import type { SeededRandom } from "@/simulation/agents";
+import type { SeededRandom } from "@/simulation";
 import { MLP } from "./models";
 
-import side_data from "@/model.json" with { type: "json" };
+import side_data from "@/side_model.json" with { type: "json" };
 
 export function createSideResolver(random: SeededRandom): Model {
     

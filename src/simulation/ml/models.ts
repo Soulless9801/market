@@ -21,7 +21,7 @@ export class DenseLayer {
 	constructor(
 		inputSize: number,
 		outputSize: number,
-        random: SeededRandom
+		random: SeededRandom,
 	) {
 		const std = Math.sqrt(2 / inputSize);
 

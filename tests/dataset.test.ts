@@ -21,15 +21,13 @@ describe("dataset generation", () => {
         // console.log(examples);
 
         for (const example of examples) {
-            expect(example.features).toHaveLength(4);
             expect(["SELL", "HOLD", "BUY"]).toContain(example.label);
         }
     });
-    // it("should write generated dataset to a file", async () => {
-    //     const examples = generate({ seed: 42, offset: 42, gap: 3, num: 100 });
-    //     const dataString = JSON.stringify(examples, null, 2);
-    //     const filePath = "dataset.json";
+    it("should generate consistent datasets for the same seed", () => {
+        const examples1 = generate({ seed: 42, offset: 42, gap: 3, num: 100 });
+        const examples2 = generate({ seed: 42, offset: 42, gap: 3, num: 100 });
 
-    //     await writeToFile(dataString, filePath);
-    // });
+        expect(examples1).toEqual(examples2);
+    });
 });

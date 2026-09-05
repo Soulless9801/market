@@ -1,7 +1,6 @@
 import type { TrainingExample } from './train';
-import { Simulator } from '../simulator';
+import { Simulator, buildDefaultAgents, type AgentSide } from '@/simulation';
 import { buildFeatures } from './features';
-import { buildDefaultAgents } from '../agents/TraderAgents';
 
 const tradeDepth = 20;
 const midPriceDepth = 20;
@@ -12,6 +11,8 @@ export type DatasetOptions = {
     gap: number;
     num: number;
 };
+
+const threshold = 1e-6;
 
 export function generate(options: DatasetOptions): TrainingExample[] {
     const { seed, offset, gap, num } = options;
@@ -33,10 +34,10 @@ export function generate(options: DatasetOptions): TrainingExample[] {
         const nextContext = simulator.getObservableContext(0, 0); // only need midprice
         const nextMidPrice = nextContext.midPrice;
 
-        let label: "BUY" | "SELL" | "HOLD";
-        if (nextMidPrice > currentMidPrice) {
+        let label: AgentSide;
+        if (nextMidPrice - currentMidPrice > threshold) {
             label = "BUY";
-        } else if (nextMidPrice < currentMidPrice) {
+        } else if (currentMidPrice - nextMidPrice > threshold) {
             label = "SELL";
         } else {
             label = "HOLD";

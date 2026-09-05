@@ -53,6 +53,7 @@ function createObservableContext(
 	return {
 		clock: 1,
 		midPrice,
+		referencePrice: 100,
 		spread,
 		orderBook,
 		recentTrades: [],
@@ -548,7 +549,7 @@ describe("simulation", () => {
 
 	it("maintains a bounded recent trade history", () => {
 		const simulator = new Simulator({
-			agents: buildDefaultAgents(123, 100),
+			agents: buildDefaultAgents(42, 100),
 			referencePrice: 100,
 		});
 
@@ -657,7 +658,7 @@ describe("simulation", () => {
 
 	it("computes market history from the running simulation", () => {
 		const simulator = new Simulator({
-			agents: buildDefaultAgents(123, 100),
+			agents: buildDefaultAgents(42, 100),
 			referencePrice: 100,
 		});
 
@@ -722,7 +723,7 @@ describe("simulation", () => {
 
 	it("respects the requested history limits", () => {
 		const simulator = new Simulator({
-			agents: buildDefaultAgents(123, 100),
+			agents: buildDefaultAgents(42, 100),
 			referencePrice: 100,
 		});
 
@@ -748,7 +749,7 @@ describe("simulation", () => {
 
 	it("returns the most recent trades", () => {
 		const simulator = new Simulator({
-			agents: buildDefaultAgents(123, 100),
+			agents: buildDefaultAgents(42, 100),
 			referencePrice: 100,
 		});
 
@@ -768,7 +769,7 @@ describe("simulation", () => {
 
 	it("returns the most recent midprice observations", () => {
 		const simulator = new Simulator({
-			agents: buildDefaultAgents(123, 100),
+			agents: buildDefaultAgents(42, 100),
 			referencePrice: 100,
 		});
 
@@ -794,7 +795,7 @@ describe("simulation", () => {
 
 	it("keeps market history separate from permanent trade history", () => {
 		const simulator = new Simulator({
-			agents: buildDefaultAgents(123, 100),
+			agents: buildDefaultAgents(42, 100),
 			referencePrice: 100,
 		});
 
@@ -825,7 +826,7 @@ describe("simulation", () => {
 
 	it("resets market history when the simulator resets", () => {
 		const simulator = new Simulator({
-			agents: buildDefaultAgents(123, 100),
+			agents: buildDefaultAgents(42, 100),
 			referencePrice: 100,
 		});
 

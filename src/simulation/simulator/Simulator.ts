@@ -33,6 +33,7 @@ export interface StepResult {
 export interface ObservableSimulatorContext {
 	clock: number;
 	midPrice: number;
+	referencePrice: number;
 	spread: number;
 	orderBook: OrderBookSnapshot;
 	recentTrades: LimitedTradeEvent[];
@@ -220,6 +221,7 @@ export class Simulator {
 		return {
 			clock: this.clock,
 			midPrice,
+			referencePrice: this.referencePrice,
 			spread,
 			orderBook,
 			recentTrades: this.getLimitedTradeHistory(tradeHistoryLimit),

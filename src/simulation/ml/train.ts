@@ -37,16 +37,6 @@ export interface TestResult {
 	accuracy: number;
 }
 
-const ACTIONS: TradingAction[] = [
-	"SELL",
-	"HOLD",
-	"BUY",
-];
-
-function actionToIndex(action: TradingAction): number {
-	return ACTIONS.indexOf(action);
-}
-
 function softmax(logits: number[]): number[] {
 	const maxLogit = Math.max(...logits);
 
@@ -87,9 +77,11 @@ function argmax(values: number[]): number {
 }
 
 function shuffle<T>(values: T[], random: SeededRandom): T[] {
+
 	const result = [...values];
 
 	for (let i = result.length - 1; i > 0; i -= 1) {
+
 		const j = Math.floor(random.next() * (i + 1));
 
 		[result[i], result[j]] = [
@@ -107,6 +99,7 @@ export function train_test_split<T>(
     random: SeededRandom,
 ): [T[], T[]] {
     const shuffled = shuffle(data, random);
+	// console.log(shuffled[0]);
     const splitIndex = Math.floor(shuffled.length * (1 - testSize));
     return [
         shuffled.slice(0, splitIndex),
@@ -116,6 +109,7 @@ export function train_test_split<T>(
 
 export function train(
 	model: Model,
+	actions: TradingAction[],
 	dataset: TrainingExample[],
 	options: TrainingOptions,
 ): TrainingResult {
@@ -150,7 +144,7 @@ export function train(
 		let correct = 0;
 
 		for (const example of examples) {
-			const targetIndex = actionToIndex(example.label);
+			const targetIndex = actions.indexOf(example.label);
 
 			if (targetIndex === -1) {
 				throw new Error(
@@ -176,7 +170,7 @@ export function train(
 			}
 
 			const target = new Array(
-				ACTIONS.length,
+				actions.length,
 			).fill(0);
 
 			target[targetIndex] = 1;
@@ -210,7 +204,7 @@ export function train(
 	};
 }
 
-export function test(model: Model, dataset: TrainingExample[]): {
+export function test(model: Model, actions: TradingAction[], dataset: TrainingExample[]): {
     loss: number;
     accuracy: number;
 } {
@@ -218,7 +212,7 @@ export function test(model: Model, dataset: TrainingExample[]): {
     let correct = 0;
 
     for (const example of dataset) {
-        const targetIndex = actionToIndex(example.label);
+        const targetIndex = actions.indexOf(example.label);
 
         if (targetIndex === -1) {
             throw new Error(
@@ -250,14 +244,15 @@ export function test(model: Model, dataset: TrainingExample[]): {
     };
 }
 
-export function train_test(model: Model, dataset: TrainingExample[], options: TrainingOptions, testSize: number): {
+export function train_test(model: Model, actions: TradingAction[], dataset: TrainingExample[], options: TrainingOptions, testSize: number): {
     trainResult: TrainingResult;
     testResult: TestResult;
 } {
-    const [trainSet, testSet] = train_test_split(dataset, testSize, options.random);
 
-    const trainResult = train(model, trainSet, options);
-    const testResult = test(model, testSet);
+    const [trainSet, testSet] = train_test_split(dataset, testSize, options.random);
+	
+    const trainResult = train(model, actions, trainSet, options);
+    const testResult = test(model, actions, testSet);
 
     return {
         trainResult,

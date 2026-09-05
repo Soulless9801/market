@@ -16,6 +16,7 @@ function makeContext(
 	return {
 		clock: 1,
 		midPrice: 100,
+		referencePrice: 100,
 		spread: 2,
 
 		orderBook: {
