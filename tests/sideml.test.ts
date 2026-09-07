@@ -1,14 +1,13 @@
 import { describe, it, expect } from "vitest";
 import { MLP, SeededRandom } from "@/simulation";
-import { generate, train, test, train_test } from '@/simulation';
-import type { TrainingExample, TrainingOptions, TradingAction, Model } from '@/simulation';
-    
-const ACTIONS: TradingAction[] = ["SELL", "HOLD", "BUY"];
+import { generateSideDataset, train, test, train_test } from '@/simulation';
+import type { TrainingExample, TrainingOptions, Model } from '@/simulation';
+import { SIDE_ACTIONS as ACTIONS } from '@/simulation';
 
 const seed = 42;
 const dataset_size = 100;
-const epochs = 100;
-const lr = 0.005;
+const epochs = 300;
+const lr = 0.001;
 
 type ModelPreset = {
     dataset: TrainingExample[];
@@ -18,11 +17,11 @@ type ModelPreset = {
 };
 
 function createSideModel(inp: number): MLP {
-    return new MLP([inp, inp * 4, inp * 4, ACTIONS.length], new SeededRandom(seed));
+    return new MLP([inp, inp * 4, inp * 2, inp, ACTIONS.length], new SeededRandom(seed));
 }
 
 function createDataset(): TrainingExample[] {
-    return generate({ seed: seed, offset: 42, gap: 3, num: dataset_size });
+    return generateSideDataset({ seed: seed, offset: 42, gap: 3, num: dataset_size });
 }
 
 function createTrainingOptions(): TrainingOptions {
@@ -76,54 +75,38 @@ describe("MLP", () => {
     it("training should reduce loss over epochs", () => {
 
         const preset = createPreset();
-        const dataset = preset.dataset;
-        const model = preset.model;
-        const options = preset.options;
-        // const testP = preset.testP;
 
-        const result = train(model, ACTIONS, dataset, options);
+        const result = train(preset.model, ACTIONS, preset.dataset, preset.options);
 
         // console.log(result.lossHistory);
 
-        expect(result.finalLoss).toBeLessThan(result.lossHistory[0]);
+        expect(result.loss).toBeLessThan(result.lossHistory[0]);
     });
     it ("should achieve reasonable accuracy on a small dataset", () => {
 
         const preset = createPreset();
-        const dataset = preset.dataset;
-        const model = preset.model;
-        const options = preset.options;
-        // const testP = preset.testP;
 
-        const result = train(model, ACTIONS, dataset, options);
+        const result = train(preset.model, ACTIONS, preset.dataset, preset.options);
 
         // console.log(result.accuracyHistory);
 
-        expect(result.finalAccuracy).toBeGreaterThan(0.5);
+        expect(result.accuracy).toBeGreaterThan(0.5);
     });
     it("expect testing to return loss and accuracy", () => {
 
         const preset = createPreset();
-        const dataset = preset.dataset;
-        const model = preset.model;
-        const options = preset.options;
-        // const testP = preset.testP;
 
-        const result = train(model, ACTIONS, dataset, options);
+        const result = train(preset.model, ACTIONS, preset.dataset, preset.options);
 
         // console.log(result.finalAccuracy);
 
-        expect(result.finalAccuracy).toBeGreaterThan(0.5);
+        expect(result.accuracy).toBeGreaterThan(0.5);
     });
     it("expect testing to return loss and accuracy", () => {
 
         const preset = createPreset();
-        const dataset = preset.dataset;
-        const model = preset.model;
-        // const options = preset.options;
-        // const testP = preset.testP;
 
-        const testResult = test(model, ACTIONS, dataset);
+        const testResult = test(preset.model, ACTIONS, preset.dataset);
 
         // console.log(trainResult.accuracyHistory);
         // console.log(testResult);
@@ -135,12 +118,8 @@ describe("MLP", () => {
     it("testing the model should return reasonable results", async () => {
 
         const preset = createPreset();
-        const dataset = preset.dataset;
-        const model = preset.model;
-        const options = preset.options;
-        const testP = preset.testP;
 
-        const testResult = train_test(model, ACTIONS, dataset, options, testP).testResult;
+        const testResult = train_test(preset.model, ACTIONS, preset.dataset, preset.options, preset.testP).testResult;
         
         // console.log(testResult.accuracy);
 
@@ -149,18 +128,14 @@ describe("MLP", () => {
     it("actual training and testing", async () => {
 
         const preset = createPreset();
-        const dataset = preset.dataset;
-        const model = preset.model;
-        const options = preset.options;
-        const testP = preset.testP;
 
         // console.log(preset);
 
-        const result = train_test(model, ACTIONS, dataset, options, testP);
+        const result = train_test(preset.model, ACTIONS, preset.dataset, preset.options, preset.testP);
 
-        console.log("Side Model Train Accuracy:", result.trainResult.finalAccuracy);
+        console.log("Side Model Train Accuracy:", result.trainResult.accuracy);
         console.log("Side Model Test Accuracy:", result.testResult.accuracy);
 
-        await writeToFile(model.toJSON(), "./src/side_model.json");
+        await writeToFile(preset.model.toJSON(), "./src/side_model.json");
     });
 });

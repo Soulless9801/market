@@ -1,9 +1,14 @@
-import type { TrainingExample } from './train';
-import { Simulator, buildDefaultAgents, type AgentSide } from '@/simulation';
+import type { AgentSide } from '@/simulation';
+import { Simulator, buildDefaultAgents} from '@/simulation';
 import { buildFeatures } from './features';
 
 const tradeDepth = 20;
 const midPriceDepth = 20;
+
+export interface TrainingExample {
+	features: number[];
+	label: AgentSide;
+}
 
 export type DatasetOptions = {
     seed: number;
@@ -12,9 +17,9 @@ export type DatasetOptions = {
     num: number;
 };
 
-const threshold = 1e-6;
+const threshold = 1e-2;
 
-export function generate(options: DatasetOptions): TrainingExample[] {
+export function generateSideDataset(options: DatasetOptions): TrainingExample[] {
     const { seed, offset, gap, num } = options;
     const examples: TrainingExample[] = [];
     const simulator = new Simulator({

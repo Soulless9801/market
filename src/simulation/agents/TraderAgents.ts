@@ -1,6 +1,6 @@
 import type { NewOrderRequest, OrderBookSnapshot } from "@/engine";
 import type { AgentSimulatorContext, Model } from "@/simulation";
-import { buildFeatures, createSideResolver } from "@/simulation";
+import { buildFeatures, createSideResolver, SIDE_ACTIONS } from "@/simulation";
 
 export type AgentSideBias = "BUY" | "SELL" | "RANDOM";
 export type AgentSide = "BUY" | "SELL" | "HOLD";
@@ -925,8 +925,10 @@ export class MLTraderAgent implements TraderAgent {
 	private resolveSide(context: AgentSimulatorContext): AgentSide {
 		const input = buildFeatures(context);
 		const output = this.side_model.predict(input);
+		// find index of max output value
 		const mx = Math.max(...output);
-		return mx === output[0] ? "BUY" : mx === output[2] ? "SELL" : "HOLD"; // buy hold sell
+		const maxIndex = output.indexOf(mx);
+		return SIDE_ACTIONS[maxIndex];
 	}
 
 	private calculateOrderPrice(side: AgentSide, context: AgentSimulatorContext): number {

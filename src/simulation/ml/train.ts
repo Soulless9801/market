@@ -1,13 +1,9 @@
 // src/ml/train.ts
 
 import type { Model } from "./models";
-import { SeededRandom } from "@/simulation/agents";
-import type { TradingAction } from "./types";
-
-export interface TrainingExample {
-	features: number[];
-	label: TradingAction;
-}
+import type { TrainingExample } from "./dataset";
+import type { AgentSide } from "@/simulation";
+import { SeededRandom } from "@/simulation";
 
 export interface TrainingOptions {
 	epochs: number;
@@ -26,8 +22,8 @@ export interface TrainingOptions {
 
 export interface TrainingResult {
 	epochs: number;
-	finalLoss: number;
-	finalAccuracy: number;
+	loss: number;
+	accuracy: number;
 	lossHistory: number[];
 	accuracyHistory: number[];
 }
@@ -109,7 +105,7 @@ export function train_test_split<T>(
 
 export function train(
 	model: Model,
-	actions: TradingAction[],
+	actions: AgentSide[],
 	dataset: TrainingExample[],
 	options: TrainingOptions,
 ): TrainingResult {
@@ -197,14 +193,14 @@ export function train(
 
 	return {
 		epochs: options.epochs,
-		finalLoss,
-		finalAccuracy,
+		loss: finalLoss,
+		accuracy: finalAccuracy,
 		lossHistory,
 		accuracyHistory,
 	};
 }
 
-export function test(model: Model, actions: TradingAction[], dataset: TrainingExample[]): {
+export function test(model: Model, actions: AgentSide[], dataset: TrainingExample[]): {
     loss: number;
     accuracy: number;
 } {
@@ -244,7 +240,7 @@ export function test(model: Model, actions: TradingAction[], dataset: TrainingEx
     };
 }
 
-export function train_test(model: Model, actions: TradingAction[], dataset: TrainingExample[], options: TrainingOptions, testSize: number): {
+export function train_test(model: Model, actions: AgentSide[], dataset: TrainingExample[], options: TrainingOptions, testSize: number): {
     trainResult: TrainingResult;
     testResult: TestResult;
 } {
