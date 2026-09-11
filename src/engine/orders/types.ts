@@ -2,8 +2,7 @@ export type Side = "BUY" | "SELL";
 
 export type OrderType = "LIMIT" | "MARKET";
 
-export type OrderStatus =
-	"FILLED" | "PARTIALLY_FILLED" | "RESTING" | "UNFILLED" | "REJECTED";
+export type OrderStatus = "FILLED" | "PARTIALLY_FILLED" | "RESTING" | "UNFILLED" | "REJECTED";
 
 export interface NewOrderRequestBase {
 	id?: string;
