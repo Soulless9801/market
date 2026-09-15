@@ -8,6 +8,7 @@ import type {
 import { calculateRecentOrderImbalance, Exchange } from "@/engine";
 import type { SimulationEvent, TraderAgent, PortfolioSnapshot } from "@/simulation";
 import { PortfolioManager } from "@/simulation";
+import { Deque } from "@/structs";
 
 export interface SimulatorOptions {
 	exchange?: Exchange;
@@ -20,6 +21,12 @@ export interface StepResult {
 	reports: ExecutionReport[];
 	events: SimulationEvent[];
 	trades: TradeEvent[];
+}
+
+// aggregate simulator statistics
+export interface SimulatorStatistics {
+	volume: number;
+	tradeCount: number;
 }
 
 // export interface SimulationContext {
@@ -45,29 +52,43 @@ export interface AgentSimulatorContext extends ObservableSimulatorContext {
 	portfolio: PortfolioSnapshot;
 }
 
+const MAX_MID_PRICE_HISTORY = 1000;
+const MAX_EVENT_HISTORY = 1000;
+
 export class Simulator {
 	private exchange: Exchange;
 	private readonly agents: TraderAgent[];
 	private readonly referencePrice: number;
-	private readonly midPriceHistory: number[] = [];
-	private readonly events: SimulationEvent[] = [];
+	private readonly midPriceHistory: Deque<number> = new Deque<number>();
+	private readonly events: Deque<SimulationEvent> = new Deque<SimulationEvent>();
 	// private readonly participantStats = new Map<string, ParticipantStats>();
 	private readonly orderParticipants = new Map<string, string>();
 	private clock = 0;
 
 	private readonly portfolioManager = new PortfolioManager();
+	private statistics: SimulatorStatistics;
+
+	private initializeParticipantPortfolios(): void {
+		for (const agent of this.agents) {
+			this.portfolioManager.createPortfolio(agent.id, 100000);
+		}
+	}
 
 	constructor(options: SimulatorOptions) {
 		this.exchange = options.exchange ?? new Exchange();
 		this.agents = options.agents;
 		this.referencePrice = options.referencePrice ?? 100;
 		this.initializeParticipantPortfolios();
+		this.statistics = {
+			volume: 0,
+			tradeCount: 0,
+		};
 	}
 
 	runStep(): StepResult {
 		this.clock += 1;
 		const observableContext = this.getObservableContext();
-		this.midPriceHistory.push(observableContext.midPrice);
+		this.midPriceHistory.pushBack(observableContext.midPrice);
 		const reports: ExecutionReport[] = [];
 		const stepEvents: SimulationEvent[] = [];
 
@@ -95,6 +116,7 @@ export class Simulator {
 
 				for (const trade of report.trades) {
 					this.portfolioManager.applyTrade(trade);
+					this.updateStatistics(trade);
 				}
 
 				if (report.trades.length > 0) {
@@ -108,8 +130,10 @@ export class Simulator {
 				}
 			}
 		}
-
-		this.events.push(...stepEvents);
+		for (const event of stepEvents) {
+			this.events.pushBack(event);
+		}
+		this.clampHistorySizes();
 		return {
 			step: this.clock,
 			reports,
@@ -126,19 +150,40 @@ export class Simulator {
 		return results;
 	}
 
+	updateStatistics(event: TradeEvent): void {
+		this.statistics.volume += event.quantity;
+		this.statistics.tradeCount += 1;
+	}
+
+	clampHistorySizes(): void {
+		while (this.midPriceHistory.size() > MAX_MID_PRICE_HISTORY) {
+			this.midPriceHistory.popFront();
+		}
+		while (this.events.size() > MAX_EVENT_HISTORY) {
+			this.events.popFront();
+		}
+	}
+
 	reset(): void {
 		this.exchange = new Exchange();
-		this.events.splice(0, this.events.length);
-		this.portfolioManager.reset();
-		this.midPriceHistory.splice(0, this.midPriceHistory.length);
-		// this.participantStats.clear();
 		this.orderParticipants.clear();
 		this.clock = 0;
+		this.midPriceHistory.clear();
+		this.events.clear();
+		this.portfolioManager.reset();
 		this.initializeParticipantPortfolios();
+		this.statistics = {
+			volume: 0,
+			tradeCount: 0,
+		};
+	}
+
+	getStatistics(): SimulatorStatistics {
+		return { ...this.statistics };
 	}
 
 	getEvents(): SimulationEvent[] {
-		return [...this.events];
+		return this.events.toArray();
 	}
 
 	getExchange(): Exchange {
@@ -164,7 +209,7 @@ export class Simulator {
 	}
 
 	getMidPriceHistory(): number[] {
-		return [...this.midPriceHistory];
+		return this.midPriceHistory.toArray();
 	}
 
 	getParticpantPortfolios(): PortfolioSnapshot[] {
@@ -180,12 +225,6 @@ export class Simulator {
 
 	getClock(): number {
 		return this.clock;
-	}
-
-	private initializeParticipantPortfolios(): void {
-		for (const agent of this.agents) {
-			this.portfolioManager.createPortfolio(agent.id, 100000);
-		}
 	}
 
 	// private createContext(): SimulationContext {
@@ -225,7 +264,7 @@ export class Simulator {
 			spread,
 			orderBook,
 			recentTrades: this.getLimitedTradeHistory(tradeHistoryLimit),
-			recentMidPriceSeries: this.midPriceHistory.slice(-priceHistoryLimit),
+			recentMidPriceSeries: this.getMidPriceHistory().slice(-priceHistoryLimit),
 			orderImbalance: calculateRecentOrderImbalance(orderBook),
 		};
 	}

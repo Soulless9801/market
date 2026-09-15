@@ -20,34 +20,32 @@ function getMidPrice(snapshot: OrderBookSnapshot): number { // wrapper to calcul
 	return calculateMidPrice(snapshot, DEFAULT_REFERENCE_PRICE);
 }
 
+function buildViewModel(simulator: Simulator): MarketViewModel {
+	return buildMarketViewModel(
+		simulator.getOrderBookSnapshot(),
+		simulator.getStatistics(),
+		simulator.getTradeHistory(),
+		simulator.getParticpantPortfolios(),
+		simulator.getClock(),
+		[DEFAULT_REFERENCE_PRICE],
+	);
+}
+
 function useSimulationController() {
-	const simulatorRef = useRef<Simulator | null>(null);
+	const [initialSimulator] = useState(() => createSimulator(DEFAULT_SEED));
+	const simulatorRef = useRef<Simulator | null>(initialSimulator);
 	const [seed, setSeed] = useState(DEFAULT_SEED);
 	const [isRunning, setIsRunning] = useState(true);
 	const [playbackSpeed, setPlaybackSpeed] = useState(1);
 
-	const buildViewModel = (simulator: Simulator): MarketViewModel =>
-    buildMarketViewModel(
-        simulator.getOrderBookSnapshot(),
-        simulator.getTradeHistory(),
-        simulator.getParticpantPortfolios(),
-        simulator.getClock(),
-        [DEFAULT_REFERENCE_PRICE],
-    );
-
-	const createSimulatorAndViewModel = (nextSeed: number) => {
-		const simulator = createSimulator(nextSeed);
-		simulatorRef.current = simulator;
-
-		return buildViewModel(simulator);
-	};
-
 	const [viewModel, setViewModel] = useState<MarketViewModel>(() =>
-		createSimulatorAndViewModel(DEFAULT_SEED),
+		buildViewModel(initialSimulator),
 	);
 
 	const reset = useCallback(() => {
-		setViewModel(createSimulatorAndViewModel(seed));
+		const simulator = createSimulator(seed);
+		simulatorRef.current = simulator;
+		setViewModel(buildViewModel(simulator));
 	}, [seed]);
 
 	const updateSeed = useCallback((nextSeed: number) => {
@@ -71,6 +69,7 @@ function useSimulationController() {
 			setViewModel((previous) =>
 				buildMarketViewModel(
 					snapshot,
+					simulator.getStatistics(),
 					simulator.getTradeHistory(),
 					simulator.getParticpantPortfolios(),
 					simulator.getClock(),
@@ -171,6 +170,7 @@ function MarketMonitor() {
 							<option value={2}>2x</option>
 							<option value={5}>5x</option>
 							<option value={10}>10x</option>
+							<option value={100}>100x</option>
 						</select>
 					</div>
 				</header>

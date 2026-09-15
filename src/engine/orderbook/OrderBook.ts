@@ -5,7 +5,7 @@ import type {
 	RestingOrder,
 	Side,
 } from "@/engine/orders";
-import { OrderedStatisticTree } from "./OrderedStatisticTree";
+import { OrderedStatisticTree } from "@/structs";
 
 interface SideState {
 	levels: Map<number, PriceLevel>;

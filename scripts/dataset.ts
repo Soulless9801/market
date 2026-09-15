@@ -71,7 +71,7 @@ async function writeToFile(data: string, filePath: string): Promise<void> {
 const seed = 42;
 const offset = 42;
 const gap = 3;
-const num = 1000;
+const num = 10000;
 
 export async function main() {
     const dataset = generateSideDataset({

@@ -102,6 +102,12 @@ export function train_test_split<T>(
     ];
 }
 
+const formatEpoch = (epoch: number, totalEpochs: number): string => {
+	const totalDigits = totalEpochs.toString().length;
+	const epochStr = epoch.toString().padStart(totalDigits, '0');
+	return `${epochStr}/${totalEpochs}`;
+}
+
 export function train(
 	model: Model,
 	actions: AgentSide[],
@@ -120,7 +126,7 @@ export function train(
 		throw new Error("learningRate must be greater than zero.");
 	}
 
-    console.log("Training model with", dataset.length, "examples for", options.epochs, "epochs at learning rate", options.learningRate);
+    // console.log("Training model with", dataset.length, "examples for", options.epochs, "epochs at learning rate", options.learningRate);
 
 	const lossHistory: number[] = [];
 	const accuracyHistory: number[] = [];
@@ -191,7 +197,7 @@ export function train(
 			finalAccuracy,
 		);
 
-        console.log("Epoch:", epoch + 1, "Loss:", finalLoss, "Accuracy:", finalAccuracy);
+        console.log("Epoch:", formatEpoch(epoch + 1, options.epochs), "Loss:", finalLoss.toFixed(4), "Accuracy:", finalAccuracy.toFixed(4));
 	}
 
 	return {
@@ -266,7 +272,7 @@ import side_data from "@datasets/side_dataset.json";
 
 const seed = 42;
 const epochs = 200;
-const lr = 0.00001;
+const lr = 0.0001;
 
 type ModelPreset = {
     dataset: TrainingExample[];

@@ -7,6 +7,9 @@ import type {
 	NewOrderRequest,
 	TradeEvent,
 } from "@/engine/orders";
+import { Deque } from "@/structs";
+
+const MAX_TRADE_HISTORY = 1000;
 
 export class Exchange {
 	private readonly orderBook = new OrderBook();
@@ -15,7 +18,7 @@ export class Exchange {
 		now: () => this.nextEventTime(),
 	});
 
-	private readonly tradeHistory: TradeEvent[] = [];
+	private readonly tradeHistory: Deque<TradeEvent> = new Deque<TradeEvent>();
 
 	private orderSequence = 1;
 	private tradeSequence = 1;
@@ -44,7 +47,10 @@ export class Exchange {
 		};
 
 		const report = this.matchingEngine.execute(incomingOrder);
-		this.tradeHistory.push(...report.trades);
+		for (const trade of report.trades) {
+			this.tradeHistory.pushBack(trade);
+		}
+		this.clampTradeHistorySize();
 		return report;
 	}
 
@@ -56,8 +62,14 @@ export class Exchange {
 		return this.orderBook.getSnapshot(depth);
 	}
 
+	clampTradeHistorySize() {
+		while (this.tradeHistory.size() > MAX_TRADE_HISTORY) {
+			this.tradeHistory.popFront();
+		}
+	}
+
 	getTradeHistory(): TradeEvent[] {
-		return [...this.tradeHistory];
+		return this.tradeHistory.toArray();
 	}
 
 	private rejectedReport(
