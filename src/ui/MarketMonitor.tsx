@@ -26,34 +26,33 @@ function useSimulationController() {
 	const [isRunning, setIsRunning] = useState(true);
 	const [playbackSpeed, setPlaybackSpeed] = useState(1);
 
-	const buildViewModel = (simulator: Simulator) => buildMarketViewModel(
-		simulator.getOrderBookSnapshot(),
-		simulator.getTradeHistory(),
-		simulator.getParticpantPortfolios(),
-		simulator.getClock(),
-		[DEFAULT_REFERENCE_PRICE],
-	);
+	const buildViewModel = (simulator: Simulator): MarketViewModel =>
+    buildMarketViewModel(
+        simulator.getOrderBookSnapshot(),
+        simulator.getTradeHistory(),
+        simulator.getParticpantPortfolios(),
+        simulator.getClock(),
+        [DEFAULT_REFERENCE_PRICE],
+    );
 
-	const resetSimulation = useCallback((nextSeed = seed) => {
+	const createSimulatorAndViewModel = (nextSeed: number) => {
 		const simulator = createSimulator(nextSeed);
 		simulatorRef.current = simulator;
-		return buildViewModel(simulator);
-	}, [seed]);
 
-	const [viewModel, setViewModel] = useState<MarketViewModel>(() => buildViewModel(createSimulator(DEFAULT_SEED)));
+		return buildViewModel(simulator);
+	};
+
+	const [viewModel, setViewModel] = useState<MarketViewModel>(() =>
+		createSimulatorAndViewModel(DEFAULT_SEED),
+	);
 
 	const reset = useCallback(() => {
-		setViewModel(resetSimulation());
-	}, [resetSimulation]);
-
-	useEffect(() => {
-		simulatorRef.current = createSimulator(DEFAULT_SEED);
-	}, []);
+		setViewModel(createSimulatorAndViewModel(seed));
+	}, [seed]);
 
 	const updateSeed = useCallback((nextSeed: number) => {
 		setSeed(nextSeed);
-		setViewModel(resetSimulation(nextSeed));
-	}, [resetSimulation]);
+	}, []);
 
 	useEffect(() => {
 		if (!isRunning) {
