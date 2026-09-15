@@ -1,0 +1,16 @@
+{
+	"compilerOptions": {
+
+		"paths": {
+			"@/*": ["./src/*"],
+            "@models/*": ["./models/*"],
+            "@datasets/*": ["./datasets/*"]
+		},
+
+        "module": "esnext",
+        "moduleResolution": "bundler",
+        "types": ["node"],
+        "noEmit": true
+	},
+	"include": ["scripts/**/*"],
+}

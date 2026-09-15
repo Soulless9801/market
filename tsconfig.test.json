@@ -2,7 +2,9 @@
     "compilerOptions": {
 
 		"paths": {
-			"@/*": ["./src/*"]
+			"@/*": ["./src/*"],
+            "@models/*": ["./models/*"],
+            "@datasets/*": ["./datasets/*"]
 		},
 
 		"tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",

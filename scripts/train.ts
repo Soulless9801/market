@@ -1,8 +1,7 @@
 // src/ml/train.ts
 
-import type { Model } from "./models";
-import type { TrainingExample } from "./dataset";
-import type { AgentSide } from "@/simulation";
+import type { TrainingExample } from './dataset';
+import type { AgentSide, Model } from "@/simulation";
 import { SeededRandom } from "@/simulation";
 
 export interface TrainingOptions {
@@ -121,6 +120,8 @@ export function train(
 		throw new Error("learningRate must be greater than zero.");
 	}
 
+    console.log("Training model with", dataset.length, "examples for", options.epochs, "epochs at learning rate", options.learningRate);
+
 	const lossHistory: number[] = [];
 	const accuracyHistory: number[] = [];
 
@@ -189,6 +190,8 @@ export function train(
 			finalLoss,
 			finalAccuracy,
 		);
+
+        console.log("Epoch:", epoch + 1, "Loss:", finalLoss, "Accuracy:", finalAccuracy);
 	}
 
 	return {
@@ -255,3 +258,76 @@ export function train_test(model: Model, actions: AgentSide[], dataset: Training
         testResult,
     };
 }
+
+import { MLP } from "@/simulation";
+import { SIDE_ACTIONS as ACTIONS } from '@/simulation';
+
+import side_data from "@datasets/side_dataset.json";
+
+const seed = 42;
+const epochs = 200;
+const lr = 0.00001;
+
+type ModelPreset = {
+    dataset: TrainingExample[];
+    model: Model;
+    options: TrainingOptions;
+    testP: number;
+};
+
+function createSideModel(inp: number): MLP {
+    return new MLP([inp, inp * 4, inp * 2, inp, ACTIONS.length], new SeededRandom(seed));
+}
+
+function createTrainingOptions(): TrainingOptions {
+    return {
+        epochs: epochs,
+        learningRate: lr,
+        random: new SeededRandom(seed)
+    };
+}
+
+function createPreset(): ModelPreset {
+    const dataset = JSON.parse(JSON.stringify(side_data)) as TrainingExample[];
+    const inp = dataset[0].features.length;
+    const model = createSideModel(inp);
+    const options = createTrainingOptions();
+    const testP = 0.2;
+
+    return {
+        dataset,
+        model,
+        options,
+        testP,
+    };
+}
+
+import { writeFile } from 'fs/promises';
+
+async function writeToFile(data: string, filePath: string): Promise<void> {
+    try {
+        await writeFile(filePath, data, 'utf-8');
+        // console.log('File written successfully.');
+    } catch (error) {
+        console.error('Error writing file:', error);
+    }
+}
+
+export async function main() {
+
+    const preset = createPreset();
+
+    // console.log(preset);
+
+    const { trainResult, testResult } = train_test(preset.model, ACTIONS, preset.dataset, preset.options, preset.testP);
+
+    console.log("Side Model Train Accuracy:", trainResult.accuracy);
+    console.log("Side Model Test Accuracy:", testResult.accuracy);
+
+    await writeToFile(preset.model.toJSON(), "./models/side_model.json");
+}
+
+main().catch((error) => {
+    console.error('Error in main:', error);
+    process.exit(1);
+});

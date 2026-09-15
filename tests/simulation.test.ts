@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { Exchange } from "@/engine";
+import { Exchange, type BookLevelSnapshot } from "@/engine";
 import {
 	buildDefaultAgents,
 	MarketMakerAgent,
@@ -34,12 +34,12 @@ function createObservableContext(
 			: 0;
 
 	const bidVolume = orderBook.bids.reduce(
-		(sum: number, level: any) => sum + level.quantity,
+		(sum: number, level: BookLevelSnapshot) => sum + level.quantity,
 		0,
 	);
 
 	const askVolume = orderBook.asks.reduce(
-		(sum: number, level: any) => sum + level.quantity,
+		(sum: number, level: BookLevelSnapshot) => sum + level.quantity,
 		0,
 	);
 

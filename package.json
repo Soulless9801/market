@@ -8,7 +8,9 @@
 		"build": "tsc -b && vite build",
 		"lint": "eslint .",
 		"preview": "vite preview",
-		"test": "vitest run"
+		"test": "vitest run",
+		"dataset": "tsx --tsconfig tsconfig.scripts.json scripts/dataset.ts",
+		"train": "tsx --tsconfig tsconfig.scripts.json scripts/train.ts"
 	},
 	"dependencies": {
 		"react": "^19.2.8",
@@ -25,6 +27,7 @@
 		"eslint-plugin-react-refresh": "^0.5.3",
 		"globals": "^17.7.0",
 		"prettier": "^3.9.6",
+		"tsx": "^4.23.13",
 		"typescript": "~6.0.2",
 		"typescript-eslint": "^8.65.0",
 		"vite": "^8.2.0",
