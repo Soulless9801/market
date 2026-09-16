@@ -1,6 +1,6 @@
 import type { NewOrderRequest, OrderBookSnapshot } from "@/engine";
-import type { AgentSimulatorContext, Model } from "@/simulation";
-import { buildFeatures, createSideResolver, SIDE_ACTIONS } from "@/simulation";
+import type { AgentSimulatorContext, FeatureNormalizer, Model } from "@/simulation";
+import { buildFeatures, createSideResolver, createSideNormalizer, SIDE_ACTIONS } from "@/simulation";
 
 export type AgentSideBias = "BUY" | "SELL" | "RANDOM";
 export type AgentSide = "BUY" | "SELL" | "HOLD";
@@ -929,6 +929,8 @@ export class MLTraderAgent implements TraderAgent {
 	private readonly side_model: Model;
 	// private readonly price_model: Model;
 
+	private readonly side_normalizer: FeatureNormalizer;
+
 	constructor(id: string, options: MLTraderAgentOptions) {
 		this.id = id;
 		// this.referencePrice = options.referencePrice;
@@ -939,6 +941,7 @@ export class MLTraderAgent implements TraderAgent {
 		this.random = new SeededRandom(options.seed);
 		this.side_model = createSideResolver(this.random);
 		// this.price_model = createPriceResolver(this.random);
+		this.side_normalizer = createSideNormalizer();
 	}
 
 	step(context: AgentSimulatorContext): NewOrderRequest[] {
@@ -960,7 +963,8 @@ export class MLTraderAgent implements TraderAgent {
 
 	private resolveSide(context: AgentSimulatorContext): AgentSide {
 		const input = buildFeatures(context);
-		const output = this.side_model.predict(input);
+		const norm = this.side_normalizer.transform(input);
+		const output = this.side_model.predict(norm);
 		// find index of max output value
 		const mx = Math.max(...output);
 		const maxIndex = output.indexOf(mx);

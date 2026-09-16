@@ -1,5 +1,5 @@
 import type { AgentSide } from '@/simulation';
-import { Simulator, buildDefaultAgents} from '@/simulation';
+import { FeatureNormalizer, Simulator, buildDefaultAgents} from '@/simulation';
 import { buildFeatures } from '@/simulation';
 
 const tradeDepth = 20;
@@ -74,6 +74,7 @@ const gap = 3;
 const num = 10000;
 
 export async function main() {
+
     const dataset = generateSideDataset({
         seed: seed,
         offset: offset,
@@ -82,6 +83,15 @@ export async function main() {
     });
 
     console.log(`Generated dataset with ${dataset.length} examples.`);
+
+    const normalizer = FeatureNormalizer.fit(dataset.map(example => example.features));
+
+    const normalizerData = normalizer.toJSON();
+    await writeToFile(normalizerData, 'datasets/side_normalizer.json');
+
+    for (const example of dataset) {
+        example.features = normalizer.transform(example.features);
+    }
 
     const jsonData = JSON.stringify(dataset, null, 2);
     await writeToFile(jsonData, 'datasets/side_dataset.json');

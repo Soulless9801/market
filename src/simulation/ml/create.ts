@@ -1,8 +1,8 @@
-import type { Model } from "./models";
-import type { SeededRandom } from "@/simulation";
-import { MLP } from "./models";
+import type { Model, SeededRandom } from "@/simulation";
+import { MLP, FeatureNormalizer } from "@/simulation";
 
 import side_data from "@models/side_model.json";
+import side_norm from "@datasets/side_normalizer.json";
 
 export function createSideResolver(random: SeededRandom): Model {
     
@@ -15,6 +15,14 @@ export function createSideResolver(random: SeededRandom): Model {
     model.fromJSON(JSON.stringify(side_json));
 
     return model;
+}
+
+export function createSideNormalizer(): FeatureNormalizer {
+    const normalizer_json = side_norm;
+    
+    const normalizer = FeatureNormalizer.fromJSON(JSON.stringify(normalizer_json));
+
+    return normalizer;
 }
 
 export function createPriceResolver(random: SeededRandom): Model {

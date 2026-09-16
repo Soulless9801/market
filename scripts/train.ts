@@ -271,8 +271,8 @@ import { SIDE_ACTIONS as ACTIONS } from '@/simulation';
 import side_data from "@datasets/side_dataset.json";
 
 const seed = 42;
-const epochs = 200;
-const lr = 0.0001;
+const epochs = 100;
+const lr = 0.0003;
 
 type ModelPreset = {
     dataset: TrainingExample[];
