@@ -1,6 +1,6 @@
 import type { AgentSide } from '@/simulation';
 import { FeatureNormalizer, Simulator, buildDefaultAgents} from '@/simulation';
-import { buildFeatures } from '@/simulation';
+import { buildMLPFeatures } from '@/simulation';
 
 const tradeDepth = 20;
 const midPriceDepth = 20;
@@ -30,7 +30,7 @@ export function generateSideDataset(options: DatasetOptions): TrainingExample[] 
     }
     for (let i = 0; i < num; i++) {
         const context = simulator.getObservableContext(tradeDepth, midPriceDepth);
-        const features = buildFeatures(context);
+        const features = buildMLPFeatures(context);
 
         const currentMidPrice = context.midPrice;
         for (let j = 0; j < gap; j++) {

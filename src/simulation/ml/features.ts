@@ -7,7 +7,7 @@ export interface FeatureStatistics {
     stds: number[];
 }
 
-export function buildFeatures(context: ObservableSimulatorContext): number[] {
+export function buildMLPFeatures(context: ObservableSimulatorContext): number[] {
     const prices = context.recentMidPriceSeries;
     const currentPrice = context.midPrice;
     const firstPrice = prices[0] ?? currentPrice;

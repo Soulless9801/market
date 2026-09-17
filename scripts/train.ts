@@ -268,7 +268,7 @@ export function train_test(model: Model, actions: AgentSide[], dataset: Training
 import { MLP } from "@/simulation";
 import { SIDE_ACTIONS as ACTIONS } from '@/simulation';
 
-import side_data from "@datasets/side_dataset.json";
+import side_data from "@datasets/side_dataset_mlp.json";
 
 const seed = 42;
 const epochs = 100;
