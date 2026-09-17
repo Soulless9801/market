@@ -281,16 +281,17 @@ type ModelPreset = {
     testP: number;
 };
 
-function createSideModel(inp: number): MLP {
-    return new MLP([inp, inp * 4, inp * 2, inp, ACTIONS.length], new SeededRandom(seed));
-}
-
 function createTrainingOptions(): TrainingOptions {
     return {
         epochs: epochs,
         learningRate: lr,
         random: new SeededRandom(seed)
     };
+}
+
+// TODO: test new models here
+function createSideModel(inp: number): Model {
+    return new MLP([inp, inp * 4, inp * 2, inp, ACTIONS.length], new SeededRandom(seed));
 }
 
 function createPreset(): ModelPreset {
@@ -330,10 +331,11 @@ export async function main() {
     console.log("Side Model Train Accuracy:", trainResult.accuracy);
     console.log("Side Model Test Accuracy:", testResult.accuracy);
 
-    await writeToFile(preset.model.toJSON(), "./models/side_model.json");
+    await writeToFile(preset.model.toJSON(), `./models/side_model_${preset.model.name()}.json`);
 }
 
 main().catch((error) => {
     console.error('Error in main:', error);
     process.exit(1);
 });
+

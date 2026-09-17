@@ -1,7 +1,7 @@
 import type { Model, SeededRandom } from "@/simulation";
 import { MLP, FeatureNormalizer } from "@/simulation";
 
-import side_data from "@models/side_model.json";
+import side_data from "@models/side_model_mlp.json";
 import side_norm from "@datasets/side_normalizer.json";
 
 export function createSideResolver(random: SeededRandom): Model {

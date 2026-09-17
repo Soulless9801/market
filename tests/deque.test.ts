@@ -59,4 +59,21 @@ describe("Deque", () => {
         expect(deque.popBack()).toBe(42);
         expect(deque.isEmpty()).toBe(true);
     });
+
+	it ("stress test with a large number of elements", () => {
+		const deque = new Deque<number>();
+		const numElements = 10000;
+
+		for (let i = 0; i < numElements; i++) {
+			deque.pushBack(i);
+		}
+
+		expect(deque.size()).toBe(numElements);
+
+		for (let i = 0; i < numElements; i++) {
+			expect(deque.popFront()).toBe(i);
+		}
+
+		expect(deque.isEmpty()).toBe(true);
+	});
 });

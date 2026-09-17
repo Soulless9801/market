@@ -12,6 +12,8 @@ export interface Model {
 	toJSON(): string;
 
 	fromJSON(json: string): void;
+
+	name(): string;
 }
 
 export class DenseLayer {
@@ -392,4 +394,26 @@ export class MLP implements Model {
 			layer.biases = data.biases[i];
 		}
 	}
+
+	name(): string {
+		return "mlp";
+	}
 }
+
+// export class CNN implements Model {
+// 	predict(input: number[]): number[] {
+// 		throw new Error("Method not implemented.");
+// 	}
+// 	train(input: number[], target: number[], learningRate: number): void {
+// 		throw new Error("Method not implemented.");
+// 	}
+// 	toJSON(): string {
+// 		throw new Error("Method not implemented.");
+// 	}
+// 	fromJSON(json: string): void {
+// 		throw new Error("Method not implemented.");
+// 	}
+// 	name(): string {
+// 		return "cnn";
+// 	}
+// }

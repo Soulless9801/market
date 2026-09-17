@@ -76,4 +76,24 @@ describe("OrderedStatisticTree", () => {
 			{ id: "order-3", price: 101 },
 		]);
 	});
+
+	it("stress test with large number of elements", () => {
+		const tree = new OrderedStatisticTree<number>((a, b) => a - b);
+		const numElements = 1000;
+
+		for (let i = 0; i < numElements; i++) {
+			tree.insert(i);
+		}
+
+		expect(tree.size).toBe(numElements);
+		expect(tree.first()).toBe(0);
+		expect(tree.select(500)).toBe(500);
+
+		for (let i = 0; i < numElements; i++) {
+			tree.delete(i);
+		}
+
+		expect(tree.size).toBe(0);
+		expect(tree.first()).toBeUndefined();
+	});
 });
