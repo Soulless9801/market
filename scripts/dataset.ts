@@ -9,14 +9,14 @@ export interface TrainingExample {
 	label: AgentSide;
 }
 
-export type DatasetOptions = {
+type DatasetOptions = {
+    model: string;
     seed: number;
     offset: number;
     gap: number;
     num: number;
 };
 
-const model = "mlp";
 const threshold = 1e-2;
 
 export function generateSideDataset(options: DatasetOptions): TrainingExample[] {
@@ -28,7 +28,7 @@ export function generateSideDataset(options: DatasetOptions): TrainingExample[] 
     while (simulator.getClock() < offset) {
         simulator.runStep();
     }
-    const builder = FeatureManager.create(model);
+    const builder = FeatureManager.create(options.model);
     for (let i = 0; i < num; i++) {
         const context = simulator.getObservableContext(tradeDepth, midPriceDepth);
         const features = builder.build(context);
@@ -76,7 +76,12 @@ const num = 10000;
 
 export async function main() {
 
+    const args = process.argv.slice(2);
+
+	const modelStr = args[0];
+
     const dataset = generateSideDataset({
+        model: modelStr,
         seed: seed,
         offset: offset,
         gap: gap,
@@ -88,14 +93,14 @@ export async function main() {
     const normalizer = NormalizerManager.getNormalizer("gaussian", dataset.map(example => example.features));
 
     const normalizerData = normalizer.toJSON();
-    await writeToFile(normalizerData, `datasets/side_normalizer_${model}.json`);
+    await writeToFile(normalizerData, `datasets/side_normalizer_${modelStr}.json`);
 
     for (const example of dataset) {
         example.features = normalizer.transform(example.features);
     }
 
     const jsonData = JSON.stringify(dataset, null, 2);
-    await writeToFile(jsonData, `datasets/side_dataset_${model}.json`);
+    await writeToFile(jsonData, `datasets/side_dataset_${modelStr}.json`);
 }
 
 main().catch((error) => {
