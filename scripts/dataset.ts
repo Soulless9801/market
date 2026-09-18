@@ -1,5 +1,5 @@
 import type { AgentSide } from '@/simulation';
-import { FeatureManager, FeatureNormalizer, Simulator, buildDefaultAgents} from '@/simulation';
+import { FeatureManager, FeatureNormalizer, NormalizerManager, Simulator, buildDefaultAgents} from '@/simulation';
 
 const tradeDepth = 20;
 const midPriceDepth = 20;
@@ -85,7 +85,7 @@ export async function main() {
 
     console.log(`Generated dataset with ${dataset.length} examples.`);
 
-    const normalizer = FeatureNormalizer.fit(dataset.map(example => example.features));
+    const normalizer = NormalizerManager.getNormalizer("gaussian", dataset.map(example => example.features));
 
     const normalizerData = normalizer.toJSON();
     await writeToFile(normalizerData, `datasets/side_normalizer_${model}.json`);

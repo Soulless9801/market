@@ -1,22 +1,26 @@
 import { SeededRandom } from "@/simulation/agents";
 
 export interface Model {
+
+	// predict probabilities for each class
 	predict(input: number[]): number[];
 
+	// backpropagation training step
 	train(
 		input: number[],
 		target: number[],
 		learningRate: number,
 	): void;
 
+	// convert model to JSON
 	toJSON(): string;
 
+	// load model from JSON
 	fromJSON(json: string): void;
-
-	name(): string;
 }
 
 export class DenseLayer {
+
 	weights: number[][];
 	biases: number[];
 
@@ -101,17 +105,14 @@ function softmax(values: number[]): number[] {
 }
 
 export class MLP implements Model {
+
 	private readonly layers: DenseLayer[];
 
 	constructor(
 		architecture: number[],
         random: SeededRandom
 	) {
-		if (architecture.length < 2) {
-			throw new Error(
-				"MLP requires at least an input and output layer.",
-			);
-		}
+		if (architecture.length < 2) throw new Error("MLP requires at least an input and output layer.");
 
 		this.layers = [];
 
@@ -130,7 +131,9 @@ export class MLP implements Model {
 		}
 	}
 
+	// @override
 	predict(input: number[]): number[] {
+
 		let activation = input;
 
 		for (
@@ -157,14 +160,7 @@ export class MLP implements Model {
 		return activation;
 	}
 
-	predictProbabilities(
-		input: number[],
-	): number[] {
-		return softmax(
-			this.predict(input),
-		);
-	}
-
+	// @override
 	train(
 		input: number[],
 		target: number[],
@@ -321,6 +317,7 @@ export class MLP implements Model {
 		}
 	}
 
+	//@override
 	toJSON(): string {
 		const architecture = this.layers.map(
 			(layer) => layer.weights[0].length,
@@ -347,6 +344,7 @@ export class MLP implements Model {
 		}, null, 2);
 	}
 
+	//@override
 	fromJSON(json: string): void {
 		const data = JSON.parse(json);
 
@@ -394,10 +392,6 @@ export class MLP implements Model {
 			layer.biases = data.biases[i];
 		}
 	}
-
-	name(): string {
-		return "mlp";
-	}
 }
 
 // export class CNN implements Model {
@@ -413,24 +407,24 @@ export class MLP implements Model {
 // 	fromJSON(json: string): void {
 // 		throw new Error("Method not implemented.");
 // 	}
-// 	name(): string {
-// 		return "cnn";
-// 	}
 // }
 
+// constructor type for models
 type ModelConstructor = new (architecture: number[], random: SeededRandom) => Model;
 
+// model manager class
 export class ModelManager {
+
+	// registry for model constructors
 	private static readonly registry = new Map<string, ModelConstructor>([
 		['mlp', MLP],
 		// ['cnn', CNN]
 	]); 
 
+	// build a model from the registry
 	static build(modelName: string, architecture: number[], random: SeededRandom): Model {
 		const builder = this.registry.get(modelName);
-		if (!builder) {
-			throw new Error(`No model builder registered for model: ${modelName}`);
-		}
+		if (!builder) throw new Error(`No model builder registered for model: ${modelName}`);
 		return new builder(architecture, random);
 	}
 }

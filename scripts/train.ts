@@ -291,7 +291,7 @@ function createTrainingOptions(): TrainingOptions {
 
 function createSideModel(inp: number): Model {
 	const architecture = [inp, inp * 4, inp * 2, inp, ACTIONS.length];
-    return ModelManager.build("mlp", architecture, new SeededRandom(seed))!;
+    return ModelManager.build(model, architecture, new SeededRandom(seed))!;
 }
 
 function createPreset(): ModelPreset {

@@ -1,6 +1,7 @@
 import type { ObservableSimulatorContext } from '../simulator';
 
 export interface FeatureBuilder {
+    // build a feature vector from available info
     build(context: ObservableSimulatorContext): number[];
 }
 
@@ -8,16 +9,19 @@ export class MLPFeatureBuilder implements FeatureBuilder {
 
     constructor() {}
 
+    // helper function to compute log return safely
     private safeLogReturn(current: number, previous: number): number {
         return current > 0 && previous > 0
             ? Math.log(current / previous)
             : 0;
     }
 
+    // helper function to ensure finite values or return zero
     private finiteOrZero(value: number): number {
         return Number.isFinite(value) ? value : 0;
     }
 
+    //@override
     build(context: ObservableSimulatorContext): number[] {
         const prices = context.recentMidPriceSeries;
         const currentPrice = context.midPrice;
@@ -30,12 +34,15 @@ export class MLPFeatureBuilder implements FeatureBuilder {
             ? context.referencePrice
             : 1;
 
+        // compute log returns for recent prices
         const returns = context.recentMidPriceSeries.map((price, index, values) =>
             this.safeLogReturn(
                 index === values.length - 1 ? context.midPrice : values[index + 1],
                 price,
             ),
         );
+
+        // std of returns
         const volatility = returns.length === 0
             ? 0
             : Math.sqrt(
@@ -67,6 +74,7 @@ export class CNNFeatureBuilder implements FeatureBuilder {
 
     constructor() {}
 
+    //@override
     build(context: ObservableSimulatorContext): number[] {
         const prices = context.recentMidPriceSeries;
         return [...prices];
@@ -77,17 +85,16 @@ type FeatureBuilderConstructor = new () => FeatureBuilder;
 
 export class FeatureManager {
 
-    // map model name to appropraite feature builder function
+    // map model name to feature builder constructor
     private static readonly registry = new Map<string, FeatureBuilderConstructor>([
         ['mlp', MLPFeatureBuilder],
         ['cnn', CNNFeatureBuilder],
     ]);
 
+    // create a feature builder instance based on model name
     static create(modelName: string): FeatureBuilder {
         const builder = this.registry.get(modelName);
-        if (!builder) {
-            throw new Error(`No feature builder registered for model: ${modelName}`);
-        }
+        if (!builder) throw new Error(`No feature builder registered for model: ${modelName}`);
         return new builder();
     }
 }

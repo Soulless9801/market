@@ -1,7 +1,9 @@
 // TODO: handle thrown errors
 
-// TODO: modularize feature normalizer
+// TODO: add comments
 
 // TODO: modularize data loading
 
 // TODO: add train/dataset command arguments
+
+// TODO: make train/test split deterministic?
