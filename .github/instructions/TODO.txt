@@ -6,4 +6,4 @@
 
 // TODO: add train/dataset command arguments
 
-// TODO: make train/test split deterministic?
+// TODO: make train deterministic?      

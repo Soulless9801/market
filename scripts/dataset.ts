@@ -1,5 +1,5 @@
 import type { AgentSide } from '@/simulation';
-import { FeatureManager, FeatureNormalizer, NormalizerManager, Simulator, buildDefaultAgents} from '@/simulation';
+import { FeatureManager, NormalizerManager, Simulator, buildDefaultAgents} from '@/simulation';
 
 const tradeDepth = 20;
 const midPriceDepth = 20;

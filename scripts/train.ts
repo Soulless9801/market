@@ -2,7 +2,7 @@
 
 import type { TrainingExample } from './dataset';
 import type { AgentSide, Model } from "@/simulation";
-import { ModelManager, SeededRandom } from "@/simulation";
+import { ArchitectureManager, ModelManager, SeededRandom } from "@/simulation";
 
 export interface TrainingOptions {
 	epochs: number;
@@ -272,7 +272,6 @@ import side_data from "@datasets/side_dataset_mlp.json";
 const seed = 42;
 const epochs = 100;
 const lr = 0.0003;
-const model = "mlp";
 
 type ModelPreset = {
     dataset: TrainingExample[];
@@ -289,15 +288,15 @@ function createTrainingOptions(): TrainingOptions {
     };
 }
 
-function createSideModel(inp: number): Model {
-	const architecture = [inp, inp * 4, inp * 2, inp, ACTIONS.length];
+function createSideModel(model: string, inp: number): Model {
+	const architecture = ArchitectureManager.build(model, inp, ACTIONS.length);
     return ModelManager.build(model, architecture, new SeededRandom(seed))!;
 }
 
-function createPreset(): ModelPreset {
+function createPreset(modelStr: string): ModelPreset {
     const dataset = JSON.parse(JSON.stringify(side_data)) as TrainingExample[];
     const inp = dataset[0].features.length;
-    const model = createSideModel(inp);
+    const model = createSideModel(modelStr, inp);
     const options = createTrainingOptions();
     const testP = 0.2;
 
@@ -322,7 +321,11 @@ async function writeToFile(data: string, filePath: string): Promise<void> {
 
 export async function main() {
 
-    const preset = createPreset();
+	const args = process.argv.slice(2);
+
+	const modelStr = args[0];
+
+    const preset = createPreset(modelStr);
 
     // console.log(preset);
 
@@ -331,7 +334,7 @@ export async function main() {
     console.log("Side Model Train Accuracy:", trainResult.accuracy);
     console.log("Side Model Test Accuracy:", testResult.accuracy);
 
-    await writeToFile(preset.model.toJSON(), `./models/side_model_${model}.json`);
+    await writeToFile(preset.model.toJSON(), `./models/side_model_${modelStr}.json`);
 }
 
 main().catch((error) => {

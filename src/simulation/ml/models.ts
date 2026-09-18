@@ -428,3 +428,36 @@ export class ModelManager {
 		return new builder(architecture, random);
 	}
 }
+
+// interface for architecture generation
+export interface ArchitectureGenerator {
+	// generate architecture from inp
+	g(inp: number, out: number): number[];
+}
+
+// class for generating MLP architecture
+export class MLPGenerator implements ArchitectureGenerator {
+
+	g(inp: number, out: number): number[] {
+		return [inp, inp * 4, inp * 2, inp, out];
+	}
+}
+
+// constructor type for architectures
+type ArchitectureConstructor = new () => ArchitectureGenerator;
+
+// architecture manager class
+export class ArchitectureManager {
+	
+	// registry for architecture constructors
+	private static readonly registry = new Map<string, ArchitectureConstructor>([
+		['mlp', MLPGenerator],
+	]);
+
+	// build architecture from the registry
+	static build(model: string, inp: number, out: number): number[] {
+		const builder = this.registry.get(model);
+		if (!builder) throw new Error(`No architecture builder registered for model: ${model}`);
+		return new builder().g(inp, out);
+	}
+}
