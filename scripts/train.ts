@@ -2,7 +2,7 @@
 
 import type { TrainingExample } from './dataset';
 import type { AgentSide, Model } from "@/simulation";
-import { SeededRandom } from "@/simulation";
+import { ModelManager, SeededRandom } from "@/simulation";
 
 export interface TrainingOptions {
 	epochs: number;
@@ -265,7 +265,6 @@ export function train_test(model: Model, actions: AgentSide[], dataset: Training
     };
 }
 
-import { MLP } from "@/simulation";
 import { SIDE_ACTIONS as ACTIONS } from '@/simulation';
 
 import side_data from "@datasets/side_dataset_mlp.json";
@@ -273,6 +272,7 @@ import side_data from "@datasets/side_dataset_mlp.json";
 const seed = 42;
 const epochs = 100;
 const lr = 0.0003;
+const model = "mlp";
 
 type ModelPreset = {
     dataset: TrainingExample[];
@@ -289,9 +289,9 @@ function createTrainingOptions(): TrainingOptions {
     };
 }
 
-// TODO: test new models here
 function createSideModel(inp: number): Model {
-    return new MLP([inp, inp * 4, inp * 2, inp, ACTIONS.length], new SeededRandom(seed));
+	const architecture = [inp, inp * 4, inp * 2, inp, ACTIONS.length];
+    return ModelManager.build("mlp", architecture, new SeededRandom(seed))!;
 }
 
 function createPreset(): ModelPreset {
@@ -331,7 +331,7 @@ export async function main() {
     console.log("Side Model Train Accuracy:", trainResult.accuracy);
     console.log("Side Model Test Accuracy:", testResult.accuracy);
 
-    await writeToFile(preset.model.toJSON(), `./models/side_model_${preset.model.name()}.json`);
+    await writeToFile(preset.model.toJSON(), `./models/side_model_${model}.json`);
 }
 
 main().catch((error) => {

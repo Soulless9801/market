@@ -1,6 +1,5 @@
 import type { AgentSide } from '@/simulation';
-import { FeatureNormalizer, Simulator, buildDefaultAgents} from '@/simulation';
-import { buildMLPFeatures } from '@/simulation';
+import { FeatureManager, FeatureNormalizer, Simulator, buildDefaultAgents} from '@/simulation';
 
 const tradeDepth = 20;
 const midPriceDepth = 20;
@@ -17,6 +16,7 @@ export type DatasetOptions = {
     num: number;
 };
 
+const model = "mlp";
 const threshold = 1e-2;
 
 export function generateSideDataset(options: DatasetOptions): TrainingExample[] {
@@ -28,9 +28,10 @@ export function generateSideDataset(options: DatasetOptions): TrainingExample[] 
     while (simulator.getClock() < offset) {
         simulator.runStep();
     }
+    const builder = FeatureManager.create(model);
     for (let i = 0; i < num; i++) {
         const context = simulator.getObservableContext(tradeDepth, midPriceDepth);
-        const features = buildMLPFeatures(context);
+        const features = builder.build(context);
 
         const currentMidPrice = context.midPrice;
         for (let j = 0; j < gap; j++) {
@@ -87,14 +88,14 @@ export async function main() {
     const normalizer = FeatureNormalizer.fit(dataset.map(example => example.features));
 
     const normalizerData = normalizer.toJSON();
-    await writeToFile(normalizerData, 'datasets/side_normalizer.json');
+    await writeToFile(normalizerData, `datasets/side_normalizer_${model}.json`);
 
     for (const example of dataset) {
         example.features = normalizer.transform(example.features);
     }
 
     const jsonData = JSON.stringify(dataset, null, 2);
-    await writeToFile(jsonData, 'datasets/side_dataset.json');
+    await writeToFile(jsonData, `datasets/side_dataset_${model}.json`);
 }
 
 main().catch((error) => {

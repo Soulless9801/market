@@ -417,3 +417,20 @@ export class MLP implements Model {
 // 		return "cnn";
 // 	}
 // }
+
+type ModelConstructor = new (architecture: number[], random: SeededRandom) => Model;
+
+export class ModelManager {
+	private static readonly registry = new Map<string, ModelConstructor>([
+		['mlp', MLP],
+		// ['cnn', CNN]
+	]); 
+
+	static build(modelName: string, architecture: number[], random: SeededRandom): Model {
+		const builder = this.registry.get(modelName);
+		if (!builder) {
+			throw new Error(`No model builder registered for model: ${modelName}`);
+		}
+		return new builder(architecture, random);
+	}
+}

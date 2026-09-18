@@ -1,0 +1,7 @@
+// TODO: handle thrown errors
+
+// TODO: modularize feature normalizer
+
+// TODO: modularize data loading
+
+// TODO: add train/dataset command arguments
