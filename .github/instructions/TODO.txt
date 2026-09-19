@@ -4,6 +4,5 @@
 
 // TODO: modularize data loading
 
-// TODO: add train/dataset command arguments
+// TODO: fix up cnn model code
 
-// TODO: make train deterministic?      

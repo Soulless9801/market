@@ -23,10 +23,13 @@ export interface Model {
 // architecture interface/metadata for models
 export interface ModelArchitecture {
 
+	// model kind (e.g., "mlp", "cnn")
 	kind: string;
 
+	// validate architecture parameters
 	validate(): void;
 
+	// check equality with another architecture
 	equals(other: ModelArchitecture): boolean;
 }
 
@@ -57,11 +60,13 @@ export class MLPArchitecture implements ModelArchitecture {
 		this.validate();
 	}
 
+	//@override
 	validate(): void {
 		if (this.layers.length < 2) throw new Error("MLP architecture requires at least an input and output layer.");
 		if (this.layers.some((size) => !Number.isInteger(size) || size <= 0)) throw new Error("MLP architecture layer sizes must be positive integers.");
 	}
 
+	//@override
 	equals(other: ModelArchitecture): boolean {
 		if (other.kind !== this.kind) return false;
 		const otherMLP = other as MLPArchitecture;
@@ -76,6 +81,7 @@ export class MLPArchitecture implements ModelArchitecture {
 // class for generating MLP architecture
 export class MLPGenerator implements ConfigGenerator {
 
+	//@override
 	g(inp: number, out: number): MLPConfig {
 		return {
 			kind: "mlp",
@@ -488,6 +494,7 @@ export class CNNArchitecture implements ModelArchitecture {
 		this.validate();
 	}
 
+	//@override
 	validate(): void {
 		if (!Number.isInteger(this.inputSize) || this.inputSize <= 0 ||
 			!Number.isInteger(this.outputSize) || this.outputSize <= 0 ||
@@ -507,6 +514,7 @@ export class CNNArchitecture implements ModelArchitecture {
 		}
 	}
 
+	//@override
 	equals(other: ModelArchitecture): boolean {
 		if (other.kind !== this.kind) return false;
 		const otherCNN = other as CNNArchitecture;
@@ -873,9 +881,7 @@ export class ModelManager {
 	static build(modelName: string, config: ModelConfig, random: SeededRandom): Model {
 		const builder = this.registry.get(modelName);
 		if (!builder) throw new Error(`No model builder registered for model: ${modelName}`);
-		if (config.kind !== modelName) {
-			throw new Error(`Architecture kind ${config.kind} does not match model: ${modelName}`);
-		}
+		if (config.kind !== modelName) throw new Error(`Architecture kind ${config.kind} does not match model: ${modelName}`);
 		return new builder(config, random);
 	}
 }

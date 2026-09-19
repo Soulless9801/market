@@ -1,13 +1,15 @@
 import type { ObservableSimulatorContext } from '../simulator';
 
 export interface FeatureBuilder {
+    // number of features produced by this builder
+    featureCount: number;
     // build a feature vector from available info
     build(context: ObservableSimulatorContext): number[];
 }
 
 export class MLPFeatureBuilder implements FeatureBuilder {
 
-    public static readonly featureCount = 10; // number of features produced by this builder
+    public readonly featureCount = 10;
 
     constructor() {}
 
@@ -74,15 +76,15 @@ export class MLPFeatureBuilder implements FeatureBuilder {
 
 export class CNNFeatureBuilder implements FeatureBuilder {
 
-    public static readonly featureCount = 5; // number of features produced by this builder
+    public readonly featureCount = 5;
 
     constructor() {}
 
     //@override
     build(context: ObservableSimulatorContext): number[] {
-        const prices = context.recentMidPriceSeries.slice(-CNNFeatureBuilder.featureCount);
+        const prices = context.recentMidPriceSeries.slice(-this.featureCount);
         // padding with current price if not enough data
-        while (prices.length < CNNFeatureBuilder.featureCount) {
+        while (prices.length < this.featureCount) {
             prices.unshift(context.midPrice);
         }
         return [...prices];

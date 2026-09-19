@@ -9,6 +9,21 @@ function createMLPModel(inp: number): MLP {
     return ModelManager.build('mlp', config, new SeededRandom(seed)) as MLP;
 }
 
+function mlpProbabilities(model: MLP, input: number[]): number[] {
+    const logits = model.predict(input);
+    const maximum = Math.max(...logits);
+    const exponentials = logits.map((value) => Math.exp(value - maximum));
+    const total = exponentials.reduce((sum, value) => sum + value, 0);
+    return exponentials.map((value) => value / total);
+}
+
+function mlpLoss(model: MLP, input: number[], target: number[]): number {
+    return -target.reduce(
+        (sum, value, index) => sum + value * Math.log(mlpProbabilities(model, input)[index]),
+        0,
+    );
+}
+
 const cnnConfig = new CNNArchitecture({
     kind: "cnn",
     inputSize: 5,
@@ -27,23 +42,59 @@ function cnnLoss(candidate: CNN, input: number[], target: number[]): number {
 }
 
 describe("Models", () => {
-    it("MLP should predict output for given input", () => {
+    it("MLP produces deterministic finite logits with the expected output shape", () => {
+        const input = [0.25, -0.5, 0.75, 1];
+        const first = createMLPModel(input.length);
+        const second = createMLPModel(input.length);
+        const firstOutput = first.predict(input);
+        const secondOutput = second.predict(input);
 
-        const n = 30;
-        const m = 1000;
+        expect(firstOutput).toHaveLength(ACTIONS.length);
+        expect(firstOutput.every(Number.isFinite)).toBe(true);
+        expect(firstOutput).toEqual(secondOutput);
+    });
 
-        // test feature length from 
-        for (let i = 1; i <= n; i++) {
-            
-            const model = createMLPModel(i);
+    it("MLP training reduces cross-entropy loss on a deterministic example", () => {
+        const input = [1, 0.5, -0.25, 0.75];
+        const target = [1, 0, 0];
+        const model = createMLPModel(input.length);
+        const initialLoss = mlpLoss(model, input, target);
 
-            for (let j = 0; j < m; j++) {
-                const feature = Array.from({ length: i }, () => Math.random());
-                const output = model.predict(feature);
+        for (let iteration = 0; iteration < 40; iteration++) {
+            model.train(input, target, 0.05);
+        }
 
-                expect(output.length).toBe(ACTIONS.length);
+        expect(mlpLoss(model, input, target)).toBeLessThan(initialLoss);
+        expect(mlpProbabilities(model, input).reduce((sum, value) => sum + value, 0)).toBeCloseTo(1);
+    });
+
+    it("MLP serialization preserves predictions and rejects incompatible architectures", () => {
+        const input = [0.1, 0.2, 0.3, 0.4];
+        const original = createMLPModel(input.length);
+        const restored = createMLPModel(input.length);
+
+        restored.fromJSON(original.toJSON());
+
+        expect(restored.predict(input)).toEqual(original.predict(input));
+        expect(() => createMLPModel(3).fromJSON(original.toJSON())).toThrow(/architecture|weights/i);
+    });
+
+    it("MLP training is reproducible for identical seeds and data order", () => {
+        const examples = [
+            { input: [1, 0, 0.5, -0.5], target: [1, 0, 0] },
+            { input: [0, 1, -0.25, 0.75], target: [0, 1, 0] },
+        ];
+        const first = createMLPModel(4);
+        const second = createMLPModel(4);
+
+        for (let epoch = 0; epoch < 10; epoch++) {
+            for (const example of examples) {
+                first.train(example.input, example.target, 0.03);
+                second.train(example.input, example.target, 0.03);
             }
         }
+
+        expect(second.toJSON()).toBe(first.toJSON());
     });
 
     it("CNN produces stable, normalized probabilities and validates input size", () => {

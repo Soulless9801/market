@@ -1,58 +1,14 @@
 import type { FeatureBuilder, FeatureNormalizer, Model, SeededRandom } from "@/simulation";
-import { MLP, ConfigManager, ModelManager, FeatureManager, NormalizerManager, MLPFeatureBuilder, SIDE_ACTIONS, CNNFeatureBuilder } from "@/simulation";
+import { MLP, ConfigManager, ModelManager, FeatureManager, NormalizerManager, SIDE_ACTIONS } from "@/simulation";
 
 import side_data from "@models/side_model_mlp.json";
 import side_norm from "@datasets/side_normalizer_mlp.json";
 
-import test_data from "@models/side_model_cnn.json";
-import test_norm from "@datasets/side_normalizer_cnn.json";
-
-export function createSideResolver(random: SeededRandom): Model {
-    
-    const side_json = side_data;
-    
-    const config = ConfigManager.build("mlp", MLPFeatureBuilder.featureCount, SIDE_ACTIONS.length);
-
-    const model = ModelManager.build("mlp", config, random);
-
-    model.fromJSON(JSON.stringify(side_json));
-
-    return model;
-}
-
-export function createTestResolver(random: SeededRandom): Model {
-    
-    const test_json = test_data;
-    
-    const config = ConfigManager.build("cnn", CNNFeatureBuilder.featureCount, SIDE_ACTIONS.length);
-
-    const model = ModelManager.build("cnn", config, random);
-
-    model.fromJSON(JSON.stringify(test_json));
-
-    return model;
-}
-
-export function createTestBuilder(): FeatureBuilder {
-    const builder = FeatureManager.create("cnn");
-
-    return builder;
-}
-
-export function createTestNormalizer(): FeatureNormalizer {
-
-    const normalizer_json = test_norm;
-    
-    const normalizer = NormalizerManager.getNormalizer("gaussian", null);
-
-    normalizer.fromJSON(JSON.stringify(normalizer_json));
-
-    return normalizer;
-}
+const modelStr = "mlp";
 
 export function createSideBuilder(): FeatureBuilder {
     
-    const builder = FeatureManager.create("mlp");
+    const builder = FeatureManager.create(modelStr);
 
     return builder;
 }
@@ -66,6 +22,19 @@ export function createSideNormalizer(): FeatureNormalizer {
     normalizer.fromJSON(JSON.stringify(normalizer_json));
 
     return normalizer;
+}
+
+export function createSideResolver(builder: FeatureBuilder, random: SeededRandom): Model {
+    
+    const side_json = side_data;
+    
+    const config = ConfigManager.build(modelStr, builder.featureCount, SIDE_ACTIONS.length);
+
+    const model = ModelManager.build(modelStr, config, random);
+
+    model.fromJSON(JSON.stringify(side_json));
+
+    return model;
 }
 
 export function createPriceResolver(random: SeededRandom): Model {
