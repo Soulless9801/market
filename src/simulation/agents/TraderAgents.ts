@@ -1,6 +1,6 @@
 import type { NewOrderRequest, OrderBookSnapshot } from "@/engine";
 import type { AgentSimulatorContext, FeatureBuilder, FeatureNormalizer, Model } from "@/simulation";
-import { createSideResolver, createSideBuilder, createSideNormalizer, SIDE_ACTIONS } from "@/simulation";
+import { createTestResolver, createTestBuilder, createTestNormalizer, SIDE_ACTIONS } from "@/simulation";
 
 export type AgentSideBias = "BUY" | "SELL" | "RANDOM";
 export type AgentSide = "BUY" | "SELL" | "HOLD";
@@ -939,9 +939,9 @@ export class MLTraderAgent implements TraderAgent {
 		this.executionStyle = options.executionStyle ?? "AGGRESSIVE";
 		this.maxPriceOffset = Math.max(0, options.maxPriceOffset ?? 1);
 		this.random = new SeededRandom(options.seed);
-		this.side_model = createSideResolver(this.random);
-		this.side_builder = createSideBuilder();
-		this.side_norm = createSideNormalizer();
+		this.side_model = createTestResolver(this.random);
+		this.side_builder = createTestBuilder();
+		this.side_norm = createTestNormalizer();
 	}
 
 	step(context: AgentSimulatorContext): NewOrderRequest[] {

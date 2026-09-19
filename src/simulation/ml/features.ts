@@ -7,6 +7,8 @@ export interface FeatureBuilder {
 
 export class MLPFeatureBuilder implements FeatureBuilder {
 
+    public static readonly featureCount = 10; // number of features produced by this builder
+
     constructor() {}
 
     // helper function to compute log return safely
@@ -72,11 +74,17 @@ export class MLPFeatureBuilder implements FeatureBuilder {
 
 export class CNNFeatureBuilder implements FeatureBuilder {
 
+    public static readonly featureCount = 5; // number of features produced by this builder
+
     constructor() {}
 
     //@override
     build(context: ObservableSimulatorContext): number[] {
-        const prices = context.recentMidPriceSeries;
+        const prices = context.recentMidPriceSeries.slice(-CNNFeatureBuilder.featureCount);
+        // padding with current price if not enough data
+        while (prices.length < CNNFeatureBuilder.featureCount) {
+            prices.unshift(context.midPrice);
+        }
         return [...prices];
     }
 }
