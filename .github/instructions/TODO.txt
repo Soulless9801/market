@@ -1,8 +1,6 @@
+// TODO: add modularized dataloader
+
 // TODO: handle thrown errors
 
 // TODO: add comments
-
-// TODO: modularize data loading
-
-// TODO: fix up cnn model code
 

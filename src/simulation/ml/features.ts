@@ -76,7 +76,7 @@ export class MLPFeatureBuilder implements FeatureBuilder {
 
 export class CNNFeatureBuilder implements FeatureBuilder {
 
-    public readonly featureCount = 5;
+    public readonly featureCount = 30;
 
     constructor() {}
 
