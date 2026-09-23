@@ -1,8 +1,7 @@
 // src/ml/train.ts
 
-import type { TrainingExample } from './dataset';
-import type { AgentSide, Model } from "@/simulation";
-import { ConfigManager, ModelManager, SeededRandom } from "@/simulation";
+import type { AgentSide, Model, TrainingExample } from "@/simulation";
+import { ConfigManager, DataLoader, ModelManager, SeededRandom } from "@/simulation";
 
 export interface TrainingOptions {
 	epochs: number;
@@ -267,8 +266,6 @@ export function train_test(model: Model, actions: AgentSide[], dataset: Training
 
 import { SIDE_ACTIONS as ACTIONS } from '@/simulation';
 
-import side_data from "@datasets/side_dataset_cnn.json";
-
 const seed = 42;
 const epochs = 100;
 const lr = 0.0003;
@@ -294,7 +291,7 @@ function createSideModel(model: string, inp: number): Model {
 }
 
 function createPreset(modelStr: string): ModelPreset {
-    const dataset = JSON.parse(JSON.stringify(side_data)) as TrainingExample[];
+	const dataset = JSON.parse(JSON.stringify(DataLoader.getData(modelStr)));
     const inp = dataset[0].features.length;
     const model = createSideModel(modelStr, inp);
     const options = createTrainingOptions();
