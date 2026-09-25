@@ -1,7 +1,11 @@
 // src/ml/train.ts
 
 import type { AgentSide, LearningRateScheduler, Model, Optimizer, TrainingExample } from "@/simulation";
-import { ConfigManager, ConstantLearningRate, DataLoader, ModelManager, SGDOptimizer, SeededRandom } from "@/simulation";
+import { ConfigManager, DataLoader, ModelManager, SeededRandom } from "@/simulation";
+
+// import correct scheduler and optimizer
+import { CosineAnnealingScheduler } from "@/simulation";
+import { AdamWOptimizer } from "@/simulation";
 
 export interface TrainingOptions {
 	epochs: number;
@@ -289,8 +293,8 @@ function createTrainingOptions(): TrainingOptions {
     return {
         epochs: epochs,
         learningRate: lr,
-		optimizer: new SGDOptimizer(),
-		scheduler: new ConstantLearningRate(),
+		optimizer: new AdamWOptimizer(),
+		scheduler: new CosineAnnealingScheduler(),
         random: new SeededRandom(seed)
     };
 }
