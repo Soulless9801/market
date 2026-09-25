@@ -1,5 +1,25 @@
 import { describe, it, expect } from "vitest";
-import { ConfigManager, CNN, CNNArchitecture, MLP, ModelManager, SeededRandom } from "@/simulation";
+import {
+    AdagradOptimizer,
+    AdamOptimizer,
+    AdamWOptimizer,
+    ConfigManager,
+    CNN,
+    CNNArchitecture,
+    ConstantLearningRate,
+    CosineAnnealingScheduler,
+    ExponentialDecayScheduler,
+    LinearDecayScheduler,
+    MLP,
+    ModelManager,
+    MomentumOptimizer,
+    PolynomialDecayScheduler,
+    RMSPropOptimizer,
+    SGDOptimizer,
+    SeededRandom,
+    StepDecayScheduler,
+    WarmupCosineScheduler,
+} from "@/simulation";
 import { SIDE_ACTIONS as ACTIONS } from '@/simulation';
 
 const seed = 42;
@@ -42,6 +62,36 @@ function cnnLoss(candidate: CNN, input: number[], target: number[]): number {
 }
 
 describe("Models", () => {
+    it("supports modular optimizers and decoupled AdamW decay", () => {
+        const optimizers = [
+            new SGDOptimizer(),
+            new MomentumOptimizer(),
+            new AdagradOptimizer(),
+            new RMSPropOptimizer(),
+            new AdamOptimizer(),
+            new AdamWOptimizer(0.1),
+        ];
+
+        for (const optimizer of optimizers) {
+            optimizer.beginStep();
+            const updated = optimizer.update("weight", 1, 0.5, 0.1, true);
+            expect(Number.isFinite(updated)).toBe(true);
+            expect(updated).toBeLessThan(1);
+            optimizer.reset();
+        }
+    });
+
+    it("implements common learning-rate schedules", () => {
+        const base = 0.1;
+        expect(new ConstantLearningRate().getLearningRate(4, 10, base)).toBe(base);
+        expect(new StepDecayScheduler(2, 0.5).getLearningRate(4, 10, base)).toBeCloseTo(0.025);
+        expect(new ExponentialDecayScheduler(Math.log(2) / 4).getLearningRate(4, 10, base)).toBeCloseTo(0.05);
+        expect(new LinearDecayScheduler(0.01).getLearningRate(10, 10, base)).toBeCloseTo(0.01);
+        expect(new CosineAnnealingScheduler(0).getLearningRate(5, 10, base)).toBeCloseTo(0.05);
+        expect(new PolynomialDecayScheduler(2).getLearningRate(5, 10, base)).toBeCloseTo(0.025);
+        expect(new WarmupCosineScheduler(2).getLearningRate(1, 10, base)).toBeCloseTo(0.05);
+    });
+
     it("MLP produces deterministic finite logits with the expected output shape", () => {
         const input = [0.25, -0.5, 0.75, 1];
         const first = createMLPModel(input.length);

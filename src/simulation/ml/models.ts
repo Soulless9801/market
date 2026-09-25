@@ -1,4 +1,5 @@
 import { SeededRandom } from "@/simulation/agents";
+import type { Optimizer } from "./optimizers";
 
 // interface for model
 export interface Model {
@@ -11,6 +12,7 @@ export interface Model {
 		input: number[],
 		target: number[],
 		learningRate: number,
+		optimizer?: Optimizer,
 	): void;
 
 	// convert model to JSON
@@ -176,6 +178,19 @@ function softmax(values: number[]): number[] {
 	);
 }
 
+function updateParameter(
+	optimizer: Optimizer | undefined,
+	parameterId: string,
+	value: number,
+	gradient: number,
+	learningRate: number,
+	isWeight = true,
+): number {
+	return optimizer
+		? optimizer.update(parameterId, value, gradient, learningRate, isWeight)
+		: value - learningRate * gradient;
+}
+
 export class MLP implements Model {
 
 	private readonly architecture: MLPArchitecture;
@@ -242,7 +257,9 @@ export class MLP implements Model {
 		input: number[],
 		target: number[],
 		learningRate: number,
+		optimizer?: Optimizer,
 	): void {
+		optimizer?.beginStep();
 
 
 		const preActivations: number[][] = [];
@@ -316,25 +333,25 @@ export class MLP implements Model {
 					].length;
 					inputIndex++
 				) {
-					layer.weights[
-						neuronIndex
-					][inputIndex] -=
-						learningRate *
-						gradients[
-							neuronIndex
-						] *
-						layerInput[
-							inputIndex
-						];
+					const gradient = gradients[neuronIndex] * layerInput[inputIndex];
+					layer.weights[neuronIndex][inputIndex] = updateParameter(
+						optimizer,
+						`mlp/${layerIndex}/weight/${neuronIndex}/${inputIndex}`,
+						layer.weights[neuronIndex][inputIndex],
+						gradient,
+						learningRate,
+						true,
+					);
 				}
 
-				layer.biases[
-					neuronIndex
-				] -=
-					learningRate *
-					gradients[
-						neuronIndex
-					];
+				layer.biases[neuronIndex] = updateParameter(
+					optimizer,
+					`mlp/${layerIndex}/bias/${neuronIndex}`,
+					layer.biases[neuronIndex],
+					gradients[neuronIndex],
+					learningRate,
+					false,
+				);
 			}
 
 			if (layerIndex === 0) {
@@ -874,7 +891,8 @@ export class CNN implements Model {
 	}
 
 	//@override
-	train(input: number[], target: number[], learningRate: number): void {
+	train(input: number[], target: number[], learningRate: number, optimizer?: Optimizer): void {
+		optimizer?.beginStep();
 		this.validateInput(input);
 		if (target.length !== this.architecture.outputSize) {
 			throw new Error(
@@ -918,12 +936,23 @@ export class CNN implements Model {
 					index < layerInput.length;
 					index++
 				) {
-					layer.weights[neuron][index] -=
-						learningRate *
-						gradients[neuron] *
-						layerInput[index];
+					layer.weights[neuron][index] = updateParameter(
+						optimizer,
+						`cnn/dense/${layerIndex}/weight/${neuron}/${index}`,
+						layer.weights[neuron][index],
+						gradients[neuron] * layerInput[index],
+						learningRate,
+						true,
+					);
 				}
-				layer.biases[neuron] -= learningRate * gradients[neuron];
+				layer.biases[neuron] = updateParameter(
+					optimizer,
+					`cnn/dense/${layerIndex}/bias/${neuron}`,
+					layer.biases[neuron],
+					gradients[neuron],
+					learningRate,
+					false,
+				);
 			}
 			if (layerIndex > 0) {
 				const preActivation = this.denseLayers[
@@ -985,7 +1014,14 @@ export class CNN implements Model {
 						convolved[filter * convolvedLength + position] > 0
 							? gradConvolved[filter * convolvedLength + position]
 							: 0;
-					layer.biases[filter] -= learningRate * reluGradient;
+					layer.biases[filter] = updateParameter(
+						optimizer,
+						`cnn/conv/${layerIndex}/bias/${filter}`,
+						layer.biases[filter],
+						reluGradient,
+						learningRate,
+						false,
+					);
 					for (
 						let channel = 0;
 						channel < inputChannels;
@@ -1002,10 +1038,15 @@ export class CNN implements Model {
 								layer.padding!;
 							if (source >= 0 && source < inputLength) {
 								const weightIndex = channel * layer.kernelSize + kernel;
-								layer.weights[filter][weightIndex] -=
-									learningRate *
-									reluGradient *
-									inputActivation[channel * inputLength + source];
+								const gradient = reluGradient * inputActivation[channel * inputLength + source];
+								layer.weights[filter][weightIndex] = updateParameter(
+									optimizer,
+									`cnn/conv/${layerIndex}/weight/${filter}/${weightIndex}`,
+									layer.weights[filter][weightIndex],
+									gradient,
+									learningRate,
+									true,
+								);
 								next[channel * inputLength + source] +=
 									reluGradient * oldWeights[filter][weightIndex];
 							}

@@ -1,11 +1,13 @@
 // src/ml/train.ts
 
-import type { AgentSide, Model, TrainingExample } from "@/simulation";
-import { ConfigManager, DataLoader, ModelManager, SeededRandom } from "@/simulation";
+import type { AgentSide, LearningRateScheduler, Model, Optimizer, TrainingExample } from "@/simulation";
+import { ConfigManager, ConstantLearningRate, DataLoader, ModelManager, SGDOptimizer, SeededRandom } from "@/simulation";
 
 export interface TrainingOptions {
 	epochs: number;
 	learningRate: number;
+	optimizer?: Optimizer;
+	scheduler?: LearningRateScheduler;
 
 	shuffle?: boolean;
 
@@ -138,6 +140,11 @@ export function train(
 		epoch < options.epochs;
 		epoch += 1
 	) {
+		const epochLearningRate = options.scheduler?.getLearningRate(
+			epoch,
+			options.epochs,
+			options.learningRate,
+		) ?? options.learningRate;
 		const examples = options.shuffle === false
 			? dataset
 			: shuffle(dataset, options.random);
@@ -180,7 +187,8 @@ export function train(
 			model.train(
 				example.features,
 				target,
-				options.learningRate,
+				epochLearningRate,
+				options.optimizer,
 			);
 		}
 
@@ -281,6 +289,8 @@ function createTrainingOptions(): TrainingOptions {
     return {
         epochs: epochs,
         learningRate: lr,
+		optimizer: new SGDOptimizer(),
+		scheduler: new ConstantLearningRate(),
         random: new SeededRandom(seed)
     };
 }
