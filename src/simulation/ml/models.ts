@@ -85,7 +85,7 @@ export class MLPGenerator implements ConfigGenerator {
 	g(inp: number, out: number): MLPConfig {
 		return {
 			kind: "mlp",
-			layers: [inp, inp * 4, inp * 2, inp, out],
+			layers: [inp, Math.max(32, inp * 4), Math.max(16, inp * 2), 16, out],
 		};
 	}
 }

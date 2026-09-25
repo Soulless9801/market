@@ -267,8 +267,8 @@ export function train_test(model: Model, actions: AgentSide[], dataset: Training
 import { SIDE_ACTIONS as ACTIONS } from '@/simulation';
 
 const seed = 42;
-const epochs = 100;
-const lr = 0.0003;
+const epochs = 150;
+const lr = 0.00003;
 
 type ModelPreset = {
     dataset: TrainingExample[];

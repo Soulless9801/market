@@ -9,7 +9,7 @@ export interface FeatureBuilder {
 
 export class MLPFeatureBuilder implements FeatureBuilder {
 
-    public readonly featureCount = 10;
+    public readonly featureCount = 40;
 
     constructor() {}
 
@@ -57,7 +57,30 @@ export class MLPFeatureBuilder implements FeatureBuilder {
         // sum up recent trade imbalance based on agressorside
         const recentTradeImbalance = context.recentTrades.reduce((sum, trade) => {
             return sum + (trade.aggressorSide === 'BUY' ? 1 : -1);
-        }, 0) / context.recentTrades.length;
+        }, 0) / Math.max(1, context.recentTrades.length);
+        const bestBid = context.orderBook.bids[0];
+        const bestAsk = context.orderBook.asks[0];
+        const bidQuantity = bestBid?.quantity ?? 0;
+        const askQuantity = bestAsk?.quantity ?? 0;
+        const bookQuantity = bidQuantity + askQuantity;
+        const topOfBookImbalance = bookQuantity > 0
+            ? (bidQuantity - askQuantity) / bookQuantity
+            : 0;
+        const depthImbalances = Array.from({ length: 5 }, (_, index) => {
+            const bidLevel = context.orderBook.bids[index]?.quantity ?? 0;
+            const askLevel = context.orderBook.asks[index]?.quantity ?? 0;
+            const levelQuantity = bidLevel + askLevel;
+            return this.finiteOrZero(levelQuantity > 0
+                ? (bidLevel - askLevel) / levelQuantity
+                : 0);
+        });
+
+        const recentReturns = prices.map((price, index, values) =>
+            this.finiteOrZero(this.safeLogReturn(
+                index === values.length - 1 ? currentPrice : values[index + 1],
+                price,
+            )),
+        );
 
         return [
             this.finiteOrZero(this.safeLogReturn(currentPrice, referencePrice)),
@@ -70,6 +93,13 @@ export class MLPFeatureBuilder implements FeatureBuilder {
             this.finiteOrZero(context.orderImbalance.imbalance),
             this.finiteOrZero(recentTradeImbalance),
             this.finiteOrZero(Math.log1p(volatility)),
+            this.finiteOrZero(topOfBookImbalance),
+            this.finiteOrZero(bestBid ? this.safeLogReturn(bestBid.price, currentPrice) : 0),
+            this.finiteOrZero(bestAsk ? this.safeLogReturn(bestAsk.price, currentPrice) : 0),
+            this.finiteOrZero(Math.log1p(bidQuantity)),
+            this.finiteOrZero(Math.log1p(askQuantity)),
+            ...recentReturns,
+            ...depthImbalances,
         ];
     }
 }

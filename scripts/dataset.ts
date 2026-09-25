@@ -22,37 +22,43 @@ const threshold = 1e-2;
 export function generateSideDataset(options: DatasetOptions): TrainingExample[] {
     const { seed, offset, gap, num } = options;
     const examples: TrainingExample[] = [];
-    const simulator = new Simulator({
-        agents: buildDefaultAgents(seed),
-    });
-    while (simulator.getClock() < offset) {
-        simulator.runStep();
-    }
     const builder = FeatureManager.create(options.model);
-    for (let i = 0; i < num; i++) {
-        const context = simulator.getObservableContext(tradeDepth, midPriceDepth);
-        const features = builder.build(context);
+    const trajectoryCount = 20;
+    const examplesPerTrajectory = Math.ceil(num / trajectoryCount);
 
-        const currentMidPrice = context.midPrice;
-        for (let j = 0; j < gap; j++) {
+    for (let trajectoryIndex = 0; trajectoryIndex < trajectoryCount && examples.length < num; trajectoryIndex++) {
+        const simulator = new Simulator({
+            agents: buildDefaultAgents(seed + trajectoryIndex * 9973),
+        });
+        while (simulator.getClock() < offset) {
             simulator.runStep();
         }
-        const nextContext = simulator.getObservableContext(0, 0); // only need midprice
-        const nextMidPrice = nextContext.midPrice;
 
-        let label: AgentSide;
-        if (nextMidPrice - currentMidPrice > threshold) {
-            label = "BUY";
-        } else if (currentMidPrice - nextMidPrice > threshold) {
-            label = "SELL";
-        } else {
-            label = "HOLD";
+        for (let exampleIndex = 0; exampleIndex < examplesPerTrajectory && examples.length < num; exampleIndex++) {
+            const context = simulator.getObservableContext(tradeDepth, midPriceDepth);
+            const features = builder.build(context);
+
+            const currentMidPrice = context.midPrice;
+            for (let j = 0; j < gap; j++) {
+                simulator.runStep();
+            }
+            const nextContext = simulator.getObservableContext(0, 0); // only need midprice
+            const nextMidPrice = nextContext.midPrice;
+
+            let label: AgentSide;
+            if (nextMidPrice - currentMidPrice > threshold) {
+                label = "BUY";
+            } else if (currentMidPrice - nextMidPrice > threshold) {
+                label = "SELL";
+            } else {
+                label = "HOLD";
+            }
+
+            examples.push({
+                features,
+                label,
+            });
         }
-
-        examples.push({
-            features,
-            label,
-        });
     }
 
     return examples;
@@ -71,7 +77,7 @@ async function writeToFile(data: string, filePath: string): Promise<void> {
 
 const seed = 42;
 const offset = 42;
-const gap = 3;
+const gap = 10;
 const num = 10000;
 
 export async function main() {
