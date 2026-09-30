@@ -24,5 +24,14 @@ dist-ssr
 *.sw?
 
 # misc
-docs/*
+docs
 AGENTS.MD
+
+# Local Python environments and generated checkpoints
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+models/checkpoints/

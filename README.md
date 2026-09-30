@@ -43,13 +43,29 @@ existing directories are protected from overwriting. See the
 [dataset contract and CLI options](docs/dataset-contract-v1.md).
 
 The existing normalized datasets and TypeScript training command remain available
-as the legacy baseline. Python training is a later phase.
+as the legacy baseline in `src/simulation/poc/`.
+
+## Python training (Phase 2)
+
+```bash
+uv sync --locked
+uv run python -m ml.training.train --dataset datasets/training/mlp --output models/checkpoints/baseline.pt
+uv run pytest -q
+```
+
+The Python package in `ml/` streams the raw exports, trains a small registered
+PyTorch MLP, and saves a versioned checkpoint with train-only preprocessing.
+Validation uses independent trajectories; early stopping restores the best epoch.
+Use a new checkpoint path for each run and `--help` for configuration options.
+The existing TypeScript runtime is unchanged. Python CNN and runtime integration
+remain later phases. Local details are in `docs/python-training-phase-2.md`;
+`docs/` and generated Python checkpoints stay outside version control.
 
 ## Model extensibility
 
 Models, feature layouts, normalizers and legacy datasets have separate registration
 APIs. Shared pipelines discover available registrations; runtime defaults live in
-`src/simulation/ml/runtime-presets.ts`. See [adding models and feature layouts](docs/model-extensibility.md)
+`src/simulation/poc/runtime-presets.ts`. See [adding models and feature layouts](docs/model-extensibility.md)
 for the extension points, custom entry points and agent configuration.
 
 ## Features

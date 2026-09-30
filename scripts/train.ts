@@ -366,7 +366,7 @@ export async function main(args = process.argv.slice(2)) {
 
 	await writeToFile(
 		preset.model.toJSON(),
-		`./models/side_model_${modelStr}.json`,
+		`./models/poc/side_model_${modelStr}.json`,
 	);
 }
 

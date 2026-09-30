@@ -1,5 +1,5 @@
-import sideModel from "@models/side_model_mlp.json";
-import sideNormalizer from "@models/side_normalizer_mlp.json";
+import sideModel from "@models/poc/side_model_mlp.json";
+import sideNormalizer from "@models/poc/side_normalizer_mlp.json";
 import type { ModelConfig } from "./models";
 
 export interface SideModelPreset {
