@@ -1,0 +1,84 @@
+body {
+	margin: 0;
+	background: #0c0c0c;
+}
+
+/* Shared grayscale tokens keep charts, controls and panels visually consistent. */
+.market-monitor {
+	--market-background: #0c0c0c;
+	--market-panel: #141414;
+	--market-surface: #191919;
+	--market-border: #333333;
+	--market-text: #ededed;
+	--market-muted: #aaaaaa;
+	--market-ask: #888888;
+	--market-bid: #d4d4d4;
+	--market-track: #292929;
+	color-scheme: dark;
+	box-sizing: border-box;
+	font-variant-numeric: tabular-nums;
+	scrollbar-color: #555555 #191919;
+}
+
+.market-monitor *,
+.market-monitor *::before,
+.market-monitor *::after {
+	box-sizing: border-box;
+}
+
+.market-header,
+.market-controls {
+	flex-wrap: wrap;
+	gap: 16px;
+}
+
+.market-grid {
+	display: grid;
+	grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+	gap: 16px;
+}
+
+.market-control {
+	font: inherit;
+	font-size: 13px;
+	min-height: 36px;
+}
+
+button.market-control,
+select.market-control {
+	cursor: pointer;
+}
+
+.market-control:hover:not(:disabled) {
+	filter: brightness(1.25);
+}
+
+.market-control:focus-visible {
+	outline: 2px solid var(--market-text);
+	outline-offset: 3px;
+}
+
+.market-control:disabled {
+	opacity: 0.45;
+	cursor: not-allowed;
+}
+
+.market-status {
+	padding: 10px 12px;
+	border-left: 2px solid var(--market-muted);
+	background: var(--market-panel);
+	color: var(--market-muted);
+	font: 12px/1.6 ui-monospace, SFMono-Regular, monospace;
+}
+
+.market-status[role="alert"] {
+	border: 1px solid var(--market-text);
+	border-left-width: 3px;
+	color: var(--market-text);
+}
+
+@media (max-width: 760px) {
+	.market-grid {
+		grid-template-columns: minmax(0, 1fr);
+	}
+}

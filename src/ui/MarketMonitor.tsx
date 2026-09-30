@@ -1,97 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useMemo } from "react";
 import type { CSSProperties, ReactElement } from "react";
-
-import type { OrderBookSnapshot } from "@/engine";
-import { buildAgents, Simulator } from "@/simulation";
-import { buildMarketViewModel, type MarketViewModel } from "./ViewModel";
-import { calculateMidPrice } from "@/engine";
-
-const DEFAULT_SEED = 15;
-const DEFAULT_REFERENCE_PRICE = 100;
-
-function createSimulator(seed: number): Simulator { // initialize a new simulator
-	return new Simulator({
-		agents: buildAgents(seed, DEFAULT_REFERENCE_PRICE),
-		referencePrice: DEFAULT_REFERENCE_PRICE,
-	});
-}
-
-function getMidPrice(snapshot: OrderBookSnapshot): number { // wrapper to calculate mid price
-	return calculateMidPrice(snapshot, DEFAULT_REFERENCE_PRICE);
-}
-
-function buildViewModel(simulator: Simulator): MarketViewModel {
-	return buildMarketViewModel(
-		simulator.getOrderBookSnapshot(),
-		simulator.getStatistics(),
-		simulator.getTradeHistory(),
-		simulator.getParticpantPortfolios(),
-		simulator.getClock(),
-		[DEFAULT_REFERENCE_PRICE],
-	);
-}
-
-function useSimulationController() {
-	const [initialSimulator] = useState(() => createSimulator(DEFAULT_SEED));
-	const simulatorRef = useRef<Simulator | null>(initialSimulator);
-	const [seed, setSeed] = useState(DEFAULT_SEED);
-	const [isRunning, setIsRunning] = useState(true);
-	const [playbackSpeed, setPlaybackSpeed] = useState(1);
-
-	const [viewModel, setViewModel] = useState<MarketViewModel>(() =>
-		buildViewModel(initialSimulator),
-	);
-
-	const reset = useCallback(() => {
-		const simulator = createSimulator(seed);
-		simulatorRef.current = simulator;
-		setViewModel(buildViewModel(simulator));
-	}, [seed]);
-
-	const updateSeed = useCallback((nextSeed: number) => {
-		setSeed(nextSeed);
-	}, []);
-
-	useEffect(() => {
-		if (!isRunning) {
-			return undefined;
-		}
-
-		const intervalId = window.setInterval(() => { // needs optimization
-			const simulator = simulatorRef.current;
-			if (!simulator) {
-				return;
-			}
-
-			simulator.runStep();
-			const snapshot = simulator.getOrderBookSnapshot();
-			const nextMidPrice = getMidPrice(snapshot);
-			setViewModel((previous) =>
-				buildMarketViewModel(
-					snapshot,
-					simulator.getStatistics(),
-					simulator.getTradeHistory(),
-					simulator.getParticpantPortfolios(),
-					simulator.getClock(),
-					[...previous.midPriceSeries.slice(-39), nextMidPrice],
-				),
-			);
-		}, 1000 / playbackSpeed);
-
-		return () => window.clearInterval(intervalId);
-	}, [isRunning, playbackSpeed]);
-
-	return {
-		viewModel,
-		isRunning,
-		seed,
-		playbackSpeed,
-		setSeed: updateSeed,
-		setIsRunning,
-		setPlaybackSpeed,
-		reset,
-	};
-}
+import { useSimulationController } from "./useSimulationController";
+import "./MarketMonitor.css";
 
 function formatPrice(value: number | null): string {
 	if (value === null) {
@@ -129,6 +39,9 @@ function MarketMonitor() {
 		setIsRunning,
 		setPlaybackSpeed,
 		reset,
+		modelStatus,
+		error,
+		isReady,
 	} = useSimulationController();
 
 	const maxHistory = useMemo(() => Math.max(...viewModel.midPriceSeries), [viewModel.midPriceSeries]);
@@ -143,28 +56,29 @@ function MarketMonitor() {
 	const innerHeight = height - topPadding - bottomPadding;
 
 	return (
-		<div style={{ minHeight: "100vh", background: "#060b16", color: "#f2f5ff", padding: "24px", fontFamily: "Inter, system-ui, sans-serif" }}>
-			<div style={{ maxWidth: "1400px", margin: "0 0", display: "grid", gap: "16px" }}>
-				<header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: "8px", borderBottom: "1px solid #23304d" }}>
+		<div className="market-monitor" style={{ minHeight: "100vh", background: "var(--market-background)", color: "var(--market-text)", padding: "24px", fontFamily: "Inter, system-ui, sans-serif" }}>
+			<div style={{ maxWidth: "1400px", margin: "0 auto", display: "grid", gap: "16px" }}>
+				<header className="market-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: "20px", borderBottom: "1px solid var(--market-border)" }}>
 					<div>
-						<h1 style={{ margin: 0, fontSize: "28px", letterSpacing: "0.03em" }}>Synthetic Market Monitor</h1>
-						<p style={{ margin: "6px 0 0", color: "#86a0c9" }}>negative cash and inventory is (totally) a feature</p>
+						<h1 style={{ margin: 0, fontSize: "24px", fontWeight: 500, letterSpacing: "-0.02em" }}>Synthetic Market Monitor</h1>
+						<p style={{ margin: "6px 0 0", color: "var(--market-muted)" }}>negative cash and inventory is (totally) a feature</p>
 					</div>
-					<div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-						<button onClick={() => setIsRunning((value) => !value)} style={buttonStyle}>
+					<div className="market-controls" style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+						<button className="market-control" disabled={!isReady} onClick={() => setIsRunning((value) => !value)} style={buttonStyle}>
 							{isRunning ? "Pause" : "Start"}
 						</button>
-						<button onClick={reset} style={buttonStyle}>Reset</button>
-						<label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px", color: "#86a0c9" }}>
+						<button className="market-control" onClick={() => { void reset(); }} style={buttonStyle}>Reset</button>
+						<label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px", color: "var(--market-muted)" }}>
 							Seed
 							<input
+								className="market-control"
 								type="number"
 								value={seed}
 								onChange={(event) => setSeed(Number(event.target.value))}
 								style={{ ...inputStyle, width: "70px" }}
 							/>
 						</label>
-						<select value={playbackSpeed} onChange={(event) => setPlaybackSpeed(Number(event.target.value))} style={inputStyle}>
+						<select className="market-control" aria-label="Playback speed" value={playbackSpeed} onChange={(event) => setPlaybackSpeed(Number(event.target.value))} style={inputStyle}>
 							<option value={0.5}>0.5x</option>
 							<option value={1}>1x</option>
 							<option value={2}>2x</option>
@@ -175,42 +89,46 @@ function MarketMonitor() {
 					</div>
 				</header>
 
-				<section style={{ display: "grid", gridTemplateColumns: "1.2fr 0.8fr", gap: "16px" }}>
+				<div className="market-status" role={error ? "alert" : "status"}>
+					{error ? `ML unavailable: ${error}. Check the development server and checkpoint, then Reset.` : modelStatus}
+				</div>
+
+				<section className="market-grid">
 					<div style={panelStyle}>
 						<div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
 							<div>
-								<div style={{ fontSize: "12px", letterSpacing: "0.16em", color: "#86a0c9", textTransform: "uppercase" }}>Order book</div>
-								<div style={{ fontSize: "14px", color: "#f2f5ff" }}>Simulation Time {viewModel.clock}</div>
+								<div style={{ fontSize: "12px", letterSpacing: "0.16em", color: "var(--market-muted)", textTransform: "uppercase" }}>Order book</div>
+								<div style={{ fontSize: "14px", color: "var(--market-text)" }}>Simulation Time {viewModel.clock}</div>
 							</div>
 							<div style={{ textAlign: "right" }}>
-								<div style={{ fontSize: "12px", color: "#86a0c9" }}>Best Bid</div>
+								<div style={{ fontSize: "12px", color: "var(--market-muted)" }}>Best Bid</div>
 								<div style={{ fontSize: "18px", fontWeight: 600 }}>{formatPrice(viewModel.bids[0]?.price ?? null)}</div>
-								<div style={{ fontSize: "12px", color: "#86a0c9" }}>Best Ask</div>
+								<div style={{ fontSize: "12px", color: "var(--market-muted)" }}>Best Ask</div>
 								<div style={{ fontSize: "18px", fontWeight: 600 }}>{formatPrice(viewModel.asks[0]?.price ?? null)}</div>
 							</div>
 						</div>
 						<div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
 							<div>
-								<div style={{ fontSize: "12px", letterSpacing: "0.16em", color: "#ff6b6b", textTransform: "uppercase", marginBottom: "8px" }}>ASK</div>
+								<div style={{ fontSize: "12px", letterSpacing: "0.16em", color: "var(--market-ask)", textTransform: "uppercase", marginBottom: "8px" }}>ASK</div>
 								{viewModel.asks.map((row) => (
 									<div key={`${row.side}-${row.price}`} style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
 										<div style={{ width: "70px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{formatPrice(row.price)}</div>
-										<div style={{ flex: 1, height: "10px", background: "rgba(255,107,107,0.16)", borderRadius: "999px", overflow: "hidden" }}>
-											<div style={{ width: `${row.barWidth}%`, height: "100%", background: "#ff6b6b", borderRadius: "999px" }} />
+										<div style={{ flex: 1, height: "10px", background: "var(--market-track)", borderRadius: 0, overflow: "hidden" }}>
+											<div style={{ width: `${row.barWidth}%`, height: "100%", background: "var(--market-ask)", borderRadius: 0 }} />
 										</div>
-										<div style={{ width: "70px", fontVariantNumeric: "tabular-nums", color: "#86a0c9" }}>{formatQuantity(row.quantity)}</div>
+										<div style={{ width: "70px", fontVariantNumeric: "tabular-nums", color: "var(--market-muted)" }}>{formatQuantity(row.quantity)}</div>
 									</div>
 								))}
 							</div>
 							<div>
-								<div style={{ fontSize: "12px", letterSpacing: "0.16em", color: "#4fd1c5", textTransform: "uppercase", marginBottom: "8px" }}>BID</div>
+								<div style={{ fontSize: "12px", letterSpacing: "0.16em", color: "var(--market-bid)", textTransform: "uppercase", marginBottom: "8px" }}>BID</div>
 								{viewModel.bids.map((row) => (
 									<div key={`${row.side}-${row.price}`} style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
 										<div style={{ width: "70px", fontVariantNumeric: "tabular-nums" }}>{formatPrice(row.price)}</div>
-										<div style={{ flex: 1, height: "10px", background: "rgba(79,209,197,0.16)", borderRadius: "999px", overflow: "hidden" }}>
-											<div style={{ width: `${row.barWidth}%`, height: "100%", background: "#4fd1c5", borderRadius: "999px" }} />
+										<div style={{ flex: 1, height: "10px", background: "var(--market-track)", borderRadius: 0, overflow: "hidden" }}>
+											<div style={{ width: `${row.barWidth}%`, height: "100%", background: "var(--market-bid)", borderRadius: 0 }} />
 										</div>
-										<div style={{ width: "70px", fontVariantNumeric: "tabular-nums", color: "#86a0c9" }}>{formatQuantity(row.quantity)}</div>
+										<div style={{ width: "70px", fontVariantNumeric: "tabular-nums", color: "var(--market-muted)" }}>{formatQuantity(row.quantity)}</div>
 									</div>
 								))}
 							</div>
@@ -219,7 +137,7 @@ function MarketMonitor() {
 
 					<div style={{ display: "grid", gap: "16px" }}>
 						<div style={panelStyle}>
-							<div style={{ fontSize: "12px", letterSpacing: "0.16em", color: "#86a0c9", textTransform: "uppercase", marginBottom: "12px" }}>Market statistics</div>
+							<div style={{ fontSize: "12px", letterSpacing: "0.16em", color: "var(--market-muted)", textTransform: "uppercase", marginBottom: "12px" }}>Market statistics</div>
 							<div style={{ display: "grid", gap: "10px" }}>
 								<Metric label="Midprice" value={formatPrice(viewModel.midPrice)} />
 								<Metric label="Spread" value={viewModel.spread === null ? "—" : formatPrice(viewModel.spread)} />
@@ -229,45 +147,45 @@ function MarketMonitor() {
 						</div>
 
 						<div style={panelStyle}>
-							<div style={{ fontSize: "12px", letterSpacing: "0.16em", color: "#86a0c9", textTransform: "uppercase", marginBottom: "12px" }}>Order imbalance</div>
+							<div style={{ fontSize: "12px", letterSpacing: "0.16em", color: "var(--market-muted)", textTransform: "uppercase", marginBottom: "12px" }}>Order imbalance</div>
 							<div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
-								<div style={{ flex: 1, height: "10px", background: "rgba(255,255,255,0.08)", borderRadius: "999px", overflow: "hidden" }}>
-									<div style={{ width: `${viewModel.imbalance.bidPercent}%`, height: "100%", background: "#4fd1c5", borderRadius: "999px" }} />
+								<div style={{ flex: 1, height: "10px", background: "var(--market-track)", borderRadius: 0, overflow: "hidden" }}>
+									<div style={{ width: `${viewModel.imbalance.bidPercent}%`, height: "100%", background: "var(--market-bid)", borderRadius: 0 }} />
 								</div>
 								<div style={{ minWidth: "88px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{viewModel.imbalance.bidPercent.toFixed(1)}% bid</div>
 							</div>
-							<div style={{ color: "#86a0c9", fontSize: "14px" }}>Bid liquidity: {viewModel.imbalance.bidVolume.toLocaleString()} | Ask liquidity: {viewModel.imbalance.askVolume.toLocaleString()}</div>
+							<div style={{ color: "var(--market-muted)", fontSize: "14px" }}>Bid liquidity: {viewModel.imbalance.bidVolume.toLocaleString()} | Ask liquidity: {viewModel.imbalance.askVolume.toLocaleString()}</div>
 						</div>
 					</div>
 				</section>
 
-				<section style={{ display: "grid", gridTemplateColumns: "1.2fr 0.8fr", gap: "16px" }}>
+				<section className="market-grid">
 					<div style={panelStyle}>
-						<div style={{ fontSize: "12px", letterSpacing: "0.16em", color: "#86a0c9", textTransform: "uppercase", marginBottom: "12px" }}>Midprice</div>
+						<div style={{ fontSize: "12px", letterSpacing: "0.16em", color: "var(--market-muted)", textTransform: "uppercase", marginBottom: "12px" }}>Midprice</div>
 						<svg viewBox={`0 0 ${width} ${height}`} style={{ width: "100%", height: "280px" }}>
-							<rect x="0" y="0" width={width} height={height} fill="rgba(8,17,32,0.55)" rx="10" />
+							<rect x="0" y="0" width={width} height={height} fill="var(--market-surface)" rx="0" />
 							{renderChartGrid(width, height, viewModel.midPriceSeries, viewModel.clock, maxHistory, minHistory)}
 							<path
 								d={buildPath(viewModel.midPriceSeries, { width: innerWidth, height: innerHeight, maxValue: maxHistory, minValue: minHistory })}
 								fill="none"
-								stroke="#4fd1c5"
-								strokeWidth="2.5"
+								stroke="var(--market-bid)"
+								strokeWidth="1.75"
 							/>
-							<text x={leftPadding + innerWidth / 2} y={height - 16} textAnchor="middle" fill="#86a0c9" fontSize="11">time</text>
-							<text x="16" y={topPadding + innerHeight / 2} textAnchor="middle" fill="#86a0c9" fontSize="11" transform={`rotate(-90 16 ${topPadding + innerHeight / 2})`}>Midprice</text>
+							<text x={leftPadding + innerWidth / 2} y={height - 16} textAnchor="middle" fill="var(--market-muted)" fontSize="11">time</text>
+							<text x="16" y={topPadding + innerHeight / 2} textAnchor="middle" fill="var(--market-muted)" fontSize="11" transform={`rotate(-90 16 ${topPadding + innerHeight / 2})`}>Midprice</text>
 						</svg>
 					</div>
 
 					<div style={panelStyle}>
-						<div style={{ fontSize: "12px", letterSpacing: "0.16em", color: "#86a0c9", textTransform: "uppercase", marginBottom: "12px" }}>Participants</div>
+						<div style={{ fontSize: "12px", letterSpacing: "0.16em", color: "var(--market-muted)", textTransform: "uppercase", marginBottom: "12px" }}>Participants</div>
 						<div style={{ display: "grid", gap: "8px", scrollBehavior: "smooth", maxHeight: "280px", overflowY: "auto" }}>
 							{viewModel.participants.map((participant) => (
-								<div key={participant.agentId} style={{ padding: "10px 12px", border: "1px solid #23304d", borderRadius: "8px", background: "#081120" }}>
+								<div key={participant.agentId} style={{ padding: "10px 12px", border: "1px solid var(--market-border)", borderRadius: 0, background: "var(--market-surface)" }}>
 									<div style={{ fontWeight: 600 }}>{participant.agentId}</div>
-									<div style={{ marginTop: "4px", color: "#86a0c9", fontSize: "14px" }}>PNL: {formatCash(participant.pnl)}</div>
-									<div style={{ color: "#86a0c9", fontSize: "14px" }}>Inventory: {participant.inventory}</div>
-									<div style={{ color: "#86a0c9", fontSize: "14px" }}>Orders Submitted: {participant.ordersSubmitted}</div>
-									<div style={{ color: "#86a0c9", fontSize: "14px" }}>Cash: {formatCash(participant.cash)}</div>
+									<div style={{ marginTop: "4px", color: "var(--market-muted)", fontSize: "14px" }}>PNL: {formatCash(participant.pnl)}</div>
+									<div style={{ color: "var(--market-muted)", fontSize: "14px" }}>Inventory: {participant.inventory}</div>
+									<div style={{ color: "var(--market-muted)", fontSize: "14px" }}>Orders Submitted: {participant.ordersSubmitted}</div>
+									<div style={{ color: "var(--market-muted)", fontSize: "14px" }}>Cash: {formatCash(participant.cash)}</div>
 								</div>
 							))}
 						</div>
@@ -275,12 +193,12 @@ function MarketMonitor() {
 				</section>
 
 				<section style={panelStyle}>
-					<div style={{ fontSize: "12px", letterSpacing: "0.16em", color: "#86a0c9", textTransform: "uppercase", marginBottom: "12px" }}>Trade tape</div>
+					<div style={{ fontSize: "12px", letterSpacing: "0.16em", color: "var(--market-muted)", textTransform: "uppercase", marginBottom: "12px" }}>Trade tape</div>
 					<div style={{ display: "grid", gap: "8px" }}>
 						{viewModel.trades.map((trade) => (
-							<div key={trade.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 10px", background: "#081120", borderRadius: "8px", fontFamily: "ui-monospace, SFMono-Regular, monospace" }}>
+							<div key={trade.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 10px", background: "var(--market-surface)", borderRadius: 0, fontFamily: "ui-monospace, SFMono-Regular, monospace" }}>
 								<div>{trade.timestamp} {trade.side} {trade.quantity} @ {formatPrice(trade.price)}</div>
-								<div style={{ color: "#86a0c9" }}>{trade.side}</div>
+								<div style={{ color: "var(--market-muted)" }}>{trade.side}</div>
 							</div>
 						))}
 					</div>
@@ -292,8 +210,8 @@ function MarketMonitor() {
 
 function Metric({ label, value }: { label: string; value: string }) {
 	return (
-		<div style={{ display: "flex", justifyContent: "space-between", padding: "8px 10px", border: "1px solid #23304d", borderRadius: "8px", background: "#081120" }}>
-			<span style={{ color: "#86a0c9" }}>{label}</span>
+		<div style={{ display: "flex", justifyContent: "space-between", padding: "8px 10px", border: "1px solid var(--market-border)", borderRadius: 0, background: "var(--market-surface)" }}>
+			<span style={{ color: "var(--market-muted)" }}>{label}</span>
 			<span style={{ fontVariantNumeric: "tabular-nums", fontWeight: 600 }}>{value}</span>
 		</div>
 	);
@@ -330,8 +248,8 @@ function renderChartGrid(width: number, height: number, series: number[], curren
 		const value = minValue + (maxValue - minValue) * (1 - yRatio);
 		lines.push(
 			<g key={`y-${index}`}>
-				<line x1={x} x2={width - rightPadding} y1={y} y2={y} stroke="#23304d" strokeWidth="1" />
-				<text x={leftPadding - 42} y={y + 4} fill="#86a0c9" fontSize="10">{value.toFixed(2)}</text>
+				<line x1={x} x2={width - rightPadding} y1={y} y2={y} stroke="var(--market-border)" strokeWidth="1" />
+				<text x={leftPadding - 42} y={y + 4} fill="var(--market-muted)" fontSize="10">{value.toFixed(2)}</text>
 			</g>,
 		);
 	}
@@ -344,8 +262,8 @@ function renderChartGrid(width: number, height: number, series: number[], curren
 		const step = currentStep - Math.max(0, series.length - 1 - sampleIndex);
 		lines.push(
 			<g key={`x-${index}`}>
-				<line x1={x} x2={x} y1={topPadding} y2={y} stroke="#23304d" strokeWidth="1" />
-				<text x={x} y={y + 16} textAnchor="middle" fill="#86a0c9" fontSize="10">{step}</text>
+				<line x1={x} x2={x} y1={topPadding} y2={y} stroke="var(--market-border)" strokeWidth="1" />
+				<text x={x} y={y + 16} textAnchor="middle" fill="var(--market-muted)" fontSize="10">{step}</text>
 			</g>,
 		);
 	}
@@ -354,28 +272,27 @@ function renderChartGrid(width: number, height: number, series: number[], curren
 }
 
 const panelStyle: CSSProperties = {
-	background: "#0d162b",
+	background: "var(--market-panel)",
 	padding: "16px",
-	borderRadius: "12px",
-	border: "1px solid #23304d",
+	borderRadius: 0,
+	border: "1px solid var(--market-border)",
 };
 
 const buttonStyle: CSSProperties = {
 	padding: "8px 12px",
-	borderRadius: "8px",
-	border: "1px solid #23304d",
-	background: "#0d162b",
-	color: "#f2f5ff",
-	cursor: "pointer",
+	borderRadius: 0,
+	border: "1px solid var(--market-border)",
+	background: "var(--market-panel)",
+	color: "var(--market-text)",
 };
 
 const inputStyle: CSSProperties = {
 	appearance: "none",
 	padding: "8px 12px",
-	borderRadius: "8px",
-	border: "1px solid #23304d",
-	background: "#081120",
-	color: "#f2f5ff",
+	borderRadius: 0,
+	border: "1px solid var(--market-border)",
+	background: "var(--market-surface)",
+	color: "var(--market-text)",
 };
 
 export default MarketMonitor;

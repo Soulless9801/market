@@ -41,3 +41,24 @@ def test_typescript_client_uses_real_python_process(exports, tmp_path):
     )
     assert result.returncode == 0, result.stdout + result.stderr
     assert "Python client integration passed" in result.stdout
+
+
+def test_local_marketview_uses_python_through_vite(exports, tmp_path):
+    checkpoint = tmp_path / "local-market.pt"
+    train(exports / "mlp", checkpoint, TrainingConfig(epochs=1))
+    result = subprocess.run(
+        ["node", "--import", "tsx", "tests/fixtures/local-market-smoke.ts"],
+        cwd=ROOT,
+        env={
+            **os.environ,
+            "TSX_TSCONFIG_PATH": "tsconfig.scripts.json",
+            "MARKET_CHECKPOINT": str(checkpoint),
+            "MARKET_PYTHON": sys.executable,
+            "MARKET_MODEL_ALIAS": "independent-ui-deployment",
+        },
+        capture_output=True,
+        text=True,
+        timeout=45,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "Local MarketView Python integration passed" in result.stdout

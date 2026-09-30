@@ -1,8 +1,18 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { localInferencePlugin } from "./src/runtime/python/localInferencePlugin";
 
 export default defineConfig({
-    plugins: [react()],
+    plugins: [react(), localInferencePlugin({
+		modelAlias: process.env.MARKET_MODEL_ALIAS ?? "market-side-v1",
+		python: {
+			pythonExecutable: process.env.MARKET_PYTHON ?? ".venv/bin/python",
+			checkpoints: {
+				[process.env.MARKET_MODEL_ALIAS ?? "market-side-v1"]:
+					process.env.MARKET_CHECKPOINT ?? "models/checkpoints/baseline.pt",
+			},
+		},
+	})],
 	resolve: {
 		tsconfigPaths: true
 	},
