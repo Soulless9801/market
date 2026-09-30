@@ -6,7 +6,7 @@ import type { Model, ModelConfig } from "./models";
 import { ModelManager } from "./models";
 import type { SeededRandom } from "@/simulation/agents";
 import { SIDE_ACTIONS } from "@/simulation/ml/types";
-import { DEFAULT_SIDE_MODEL, DEFAULT_PRICE_MODEL } from "./runtime-presets";
+import { DEFAULT_SIDE_MODEL } from "./runtime-presets";
 import type { SideModelPreset } from "./runtime-presets";
 
 export function createSideBuilder(
@@ -52,10 +52,4 @@ export function createSideResolver(
 			"Side model must produce one finite score per action.",
 		);
 	return model;
-}
-export function createPriceResolver(
-	random: SeededRandom,
-	config: ModelConfig = DEFAULT_PRICE_MODEL,
-): Model {
-	return ModelManager.build(config.kind, config, random);
 }

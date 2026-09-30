@@ -9,10 +9,10 @@ import {
 import type { DatasetOptions } from "../src/simulation/ml/dataset-contract";
 import { generateDataset } from "../src/simulation/ml/dataset-generation";
 import { exportDataset } from "../src/simulation/ml/dataset-export";
-import type { TrainingExample } from "../src/simulation/poc/data";
+import type { TrainingExample } from "../src/simulation/ml/types";
 
 // Retain the old raw-example helper for callers; large exports use the lazy generator.
-export type { TrainingExample } from "../src/simulation/poc/data";
+export type { TrainingExample } from "../src/simulation/ml/types";
 export function generateSideDataset(options: {
 	model: string;
 	seed: number;

@@ -9,8 +9,7 @@
 		"lint": "eslint .",
 		"preview": "vite preview",
 		"test": "vitest run",
-		"dataset": "tsx --tsconfig tsconfig.scripts.json scripts/dataset.ts",
-		"train": "tsx --tsconfig tsconfig.scripts.json scripts/train.ts"
+		"dataset": "tsx --tsconfig tsconfig.scripts.json scripts/dataset.ts"
 	},
 	"dependencies": {
 		"react": "^19.2.8",
