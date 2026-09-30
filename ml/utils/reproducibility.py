@@ -10,6 +10,7 @@ from ml.data.schema import integer
 
 
 def seed_everything(seed: int) -> None:
+    """Control initialization and data randomness; unsupported deterministic kernels fail loudly."""
     integer(seed, "seed", 0, 2**32 - 1)
     # Required by deterministic CUDA matrix multiplication; harmless on CPU.
     os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")

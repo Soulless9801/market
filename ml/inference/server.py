@@ -27,6 +27,8 @@ def serve(
     """Bound each UTF-8 line to 1 MiB (including newline); drain oversize lines before resuming."""
     while line := source.readline(MAX_REQUEST_BYTES + 1):
         if len(line) > MAX_REQUEST_BYTES:
+            # Drain the rest of the same bad line. Treating chunks as new requests
+            # would lose framing and associate errors with unrelated predictions.
             while not line.endswith(b"\n"):
                 line = source.readline(MAX_REQUEST_BYTES + 1)
                 if not line:
@@ -52,6 +54,11 @@ def main(argv: list[str] | None = None) -> int:
         help="Register a checkpoint (repeatable); paths are relative to the working directory",
     )
     parser.add_argument("--num-threads", type=int, default=1, help="Positive CPU thread count")
+    parser.add_argument(
+        "--ready-message",
+        action="store_true",
+        help="Emit a versioned JSON ready message after all checkpoints load (for process clients)",
+    )
     args = parser.parse_args(argv)
     try:
         require(args.num_threads > 0, "num-threads must be positive")
@@ -74,6 +81,15 @@ def main(argv: list[str] | None = None) -> int:
         traceback.print_exc(file=sys.stderr)
         return 1
     try:
+        if args.ready_message:
+            # Process clients opt into readiness plus public feature contracts.
+            # Plain Phase 4 callers still receive exactly one reply per request.
+            print(
+                json.dumps(
+                    {"type": "ready", "protocolVersion": 1, "models": registry.describe_models()}
+                ),
+                flush=True,
+            )
         serve(registry, sys.stdin.buffer, sys.stdout, sys.stderr)
     except BrokenPipeError:
         # Prevent another failing flush during interpreter shutdown when the client closes stdout.

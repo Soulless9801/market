@@ -21,6 +21,7 @@ def error_response(request_id: int | None, message: str) -> dict:
 
 
 def respond(line: str, registry: CheckpointRegistry, diagnostics: TextIO | None = None) -> dict:
+    """Validate one request and preserve its ID; request errors do not restart the server."""
     diagnostics = diagnostics if diagnostics is not None else sys.stderr
     request_id = None
     try:

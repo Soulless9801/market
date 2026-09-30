@@ -2,7 +2,6 @@ import type { AgentSide } from "@/simulation/agents";
 import { SIDE_ACTIONS } from "./types";
 import { FeatureManager } from "./feature-generation";
 
-/** Feature-layout identifier; retained name for schema-v1/API compatibility. */
 export type DatasetModel = string;
 
 export interface DatasetOptions {
@@ -188,6 +187,8 @@ export function validateDatasetExample(
 	value: unknown,
 	contract: DatasetContract,
 ): asserts value is DatasetExample {
+	// An exact allowlist prevents portfolio fields or future observations from being
+	// accidentally serialized alongside the approved features and label provenance.
 	if (!value || typeof value !== "object" || Array.isArray(value))
 		throw new Error("Example must be an object.");
 	const keys = [

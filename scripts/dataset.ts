@@ -1,18 +1,18 @@
-import { FeatureManager } from "../src/simulation/ml/feature-generation";
+import { FeatureManager } from "@/simulation/ml/feature-generation";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import {
 	DEFAULT_DATASET_OPTIONS,
 	createDatasetContract,
-} from "../src/simulation/ml/dataset-contract";
-import type { DatasetOptions } from "../src/simulation/ml/dataset-contract";
-import { generateDataset } from "../src/simulation/ml/dataset-generation";
-import { exportDataset } from "../src/simulation/ml/dataset-export";
-import type { TrainingExample } from "../src/simulation/ml/types";
+} from "@/simulation/ml/dataset-contract";
+import type { DatasetOptions } from "@/simulation/ml/dataset-contract";
+import { generateDataset } from "@/simulation/ml/dataset-generation";
+import { exportDataset } from "@/simulation/ml/dataset-export";
+import type { TrainingExample } from "@/simulation/ml/types";
 
 // Retain the old raw-example helper for callers; large exports use the lazy generator.
-export type { TrainingExample } from "../src/simulation/ml/types";
+export type { TrainingExample } from "@/simulation/ml/types";
 export function generateSideDataset(options: {
 	model: string;
 	seed: number;
@@ -36,6 +36,8 @@ export function generateSideDataset(options: {
 }
 
 export async function main(args = process.argv.slice(2)): Promise<void> {
+	// CLI choices come from registered layouts. The positional ID selects input
+	// semantics, not the Python architecture that will eventually train on the export.
 	const { values, positionals } = parseArgs({
 		args,
 		allowPositionals: true,
@@ -60,7 +62,7 @@ export async function main(args = process.argv.slice(2)): Promise<void> {
   --horizon N       Label horizon and sample spacing in steps (10)
 
 Writes raw public features to dataset.jsonl and a versioned metadata.json.
-Existing output directories are rejected. Legacy dataset/scaler files are unchanged.`);
+Existing output directories are rejected; existing exports are never overwritten.`);
 		return;
 	}
 	const model = positionals[0];

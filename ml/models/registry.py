@@ -12,6 +12,8 @@ from ml.data.schema import integer, require
 
 @dataclass(frozen=True)
 class ModelDefinition:
+    """configure derives serializable settings; create restores that exact architecture."""
+
     version: int
     configure: Callable[[dict, dict], dict]
     create: Callable[[dict], nn.Module]
@@ -43,6 +45,7 @@ def configure_model(name: str, metadata: dict, options: dict) -> dict:
 
 
 def build_model(name: str, version: int, config: dict) -> nn.Module:
+    """Reject incompatible checkpoint versions instead of guessing new defaults."""
     definition = definition_for(name)
     require(type(version) is int and version == definition.version, f"Unsupported {name} version")
     model = definition.create(deepcopy(config))

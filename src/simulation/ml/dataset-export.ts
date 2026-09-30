@@ -21,6 +21,8 @@ export async function exportDataset(
 	const output = resolve(outputDirectory);
 	await mkdir(dirname(output), { recursive: true });
 	await mkdir(output); // Exclusive reservation also prevents concurrent exporters.
+	// Readers treat metadata.json as the completion marker. Stage both files in the
+	// reserved directory, validate every row, then publish metadata last.
 	const dataTemp = join(output, ".dataset.jsonl.tmp");
 	const metadataTemp = join(output, ".metadata.json.tmp");
 	const dataFile = join(output, "dataset.jsonl");

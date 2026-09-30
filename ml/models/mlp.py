@@ -38,6 +38,8 @@ class MLP(nn.Module):
 
 
 def configure(metadata: dict, options: dict) -> dict:
+    # Architecture defaults live here, outside shared training and inference. This
+    # MLP can train on any registered flat layout; the layout ID need not be "mlp".
     require(set(options) <= {"hidden_sizes"}, "Unknown MLP options")
     return {
         "input_shape": metadata["inputShape"],

@@ -33,6 +33,9 @@ def save_checkpoint(path: str | Path, payload: dict) -> None:
 
 
 def load_checkpoint(path: str | Path) -> tuple[Predictor, dict]:
+    """Restore the saved architecture plus preprocessing, then verify a finite output probe."""
+    # Restrict deserialization to tensor/primitive checkpoint contents. Architecture
+    # code comes from our registry, never from a pickled model object in the file.
     payload = torch.load(path, map_location="cpu", weights_only=True)
     require(
         isinstance(payload, dict)

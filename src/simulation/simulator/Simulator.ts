@@ -1,5 +1,6 @@
 import type { 
 	ExecutionReport,
+	NewOrderRequest,
 	LimitedTradeEvent,
 	OrderBookSnapshot, 
 	OrderImbalance, 
@@ -57,6 +58,8 @@ export interface ObservableSimulatorContext {
 
 export interface AgentSimulatorContext extends ObservableSimulatorContext {
 	portfolio: PortfolioSnapshot;
+	/** Completed step represented by the observation; clock remains the agent's decision step. */
+	observationClock?: number;
 }
 
 const MAX_MID_PRICE_HISTORY = 1000;
@@ -71,6 +74,8 @@ export class Simulator {
 	// private readonly participantStats = new Map<string, ParticipantStats>();
 	private readonly orderParticipants = new Map<string, string>();
 	private clock = 0;
+	private stepping = false;
+	private faulted = false;
 
 	private readonly portfolioManager = new PortfolioManager();
 	private statistics: SimulatorStatistics;
@@ -83,7 +88,7 @@ export class Simulator {
 
 	constructor(options: SimulatorOptions) {
 		this.exchange = options.exchange ?? new Exchange();
-		this.agents = options.agents;
+		this.agents = [...options.agents];
 		this.referencePrice = options.referencePrice ?? 100;
 		this.initializeParticipantPortfolios();
 		this.statistics = {
@@ -92,34 +97,93 @@ export class Simulator {
 		};
 	}
 
+	private beginStep(): void {
+		if (this.stepping) throw new Error("A simulation step is already pending");
+		if (this.faulted) throw new Error("Simulation failed; reset or recreate it before continuing");
+		this.stepping = true;
+	}
+
+	/** Retain synchronous stepping for non-ML dataset exports and existing agents. */
 	runStep(): StepResult {
-		this.clock += 1;
-		const observableContext = this.getObservableContext();
+		if (this.agents.some(agent => agent.asynchronous)) {
+			throw new Error("Use runStepAsync for asynchronous agents");
+		}
+		this.beginStep();
+		const step = this.advanceStep();
+		let unexpectedPending = false;
+		try {
+			let next = step.next();
+			while (!next.done) {
+				if (!Array.isArray(next.value)) {
+					// A custom agent may omit its async marker. Keep the lock until its
+					// in-flight work settles, even though this caller used the wrong API.
+					unexpectedPending = true;
+					void Promise.resolve(next.value).then(
+						() => { this.stepping = false; },
+						() => { this.stepping = false; },
+					);
+					throw new Error("Use runStepAsync for asynchronous agents");
+				}
+				next = step.next(next.value);
+			}
+			return next.value;
+		} catch (error) {
+			this.faulted = true;
+			throw error;
+		} finally {
+			if (!unexpectedPending) this.stepping = false;
+		}
+	}
+
+	/** Await one agent at a time; response latency must not change market ordering. */
+	async runStepAsync(): Promise<StepResult> {
+		this.beginStep();
+		const step = this.advanceStep();
+		try {
+			let next = step.next();
+			while (!next.done) next = step.next(await next.value);
+			return next.value;
+		} catch (error) {
+			// Earlier agents may already have traded. Do not retry a partially executed step.
+			this.faulted = true;
+			throw error;
+		} finally {
+			this.stepping = false;
+		}
+	}
+
+	// One generator owns market mutations for both APIs. It yields an agent's decision
+	// and resumes with its orders, so sync/async runners cannot drift in trading semantics.
+	private *advanceStep(): Generator<NewOrderRequest[] | Promise<NewOrderRequest[]>, StepResult, NewOrderRequest[]> {
+		const decisionClock = this.clock + 1;
+		const observableContext = { ...this.getObservableContext(), clock: decisionClock };
 		// Capture every agent's view before any agent acts or the history advances.
 		const observations = new Map<TraderAgent, ObservableSimulatorContext>();
 		for (const agent of this.agents) {
 			if (agent.observation) {
 				const { tradeHistoryLimit, priceHistoryLimit, bookDepth } = agent.observation;
-				observations.set(agent, this.getObservableContext(
+				observations.set(agent, { ...this.getObservableContext(
 					tradeHistoryLimit, priceHistoryLimit, bookDepth,
-				));
+				), clock: decisionClock });
 			}
 		}
-		this.midPriceHistory.pushBack(observableContext.midPrice);
 		const reports: ExecutionReport[] = [];
 		const stepEvents: SimulationEvent[] = [];
 
 		for (const agent of this.agents) {
 			stepEvents.push({
 				type: "agent-step",
-				timestamp: this.clock,
+				timestamp: decisionClock,
 				agentId: agent.id,
 			});
 			const agentContext = this.getAgentContext(
-				agent.id, observations.get(agent) ?? observableContext,
+				agent.id, structuredClone(observations.get(agent) ?? observableContext),
 			);
+			// Public observations stay at the pre-step snapshot; portfolio updates from
+			// earlier agents remain visible as in the original sequential simulator.
+			agentContext.observationClock = this.clock;
 
-			const orders = agent.step(agentContext);
+			const orders = yield agent.step(agentContext);
 			for (const order of orders) {
 				const report = this.exchange.submitOrder(order);
 				this.portfolioManager.incrementOrdersSubmitted(agent.id);
@@ -127,7 +191,7 @@ export class Simulator {
 				reports.push(report);
 				stepEvents.push({
 					type: "order-submitted",
-					timestamp: this.clock,
+					timestamp: decisionClock,
 					agentId: agent.id,
 					orderId: report.orderId,
 					report,
@@ -141,7 +205,7 @@ export class Simulator {
 				if (report.trades.length > 0) {
 					stepEvents.push({
 						type: "trade",
-						timestamp: this.clock,
+						timestamp: decisionClock,
 						agentId: agent.id,
 						orderId: report.orderId,
 						tradeCount: report.trades.length,
@@ -149,6 +213,9 @@ export class Simulator {
 				}
 			}
 		}
+		// Publish the completed step only when every agent has finished successfully.
+		this.clock = decisionClock;
+		this.midPriceHistory.pushBack(observableContext.midPrice);
 		for (const event of stepEvents) {
 			this.events.pushBack(event);
 		}
@@ -184,6 +251,8 @@ export class Simulator {
 	}
 
 	reset(): void {
+		if (this.stepping) throw new Error("Cannot reset while a simulation step is pending");
+		this.faulted = false;
 		this.exchange = new Exchange();
 		this.orderParticipants.clear();
 		this.clock = 0;

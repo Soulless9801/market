@@ -34,6 +34,7 @@ def make_loader(dataset, config: TrainingConfig) -> DataLoader:
 
 
 def validation_data(dataset: MarketDataset, config: TrainingConfig):
+    """Use whole held-out trajectories, or a compatible export with disjoint seeds."""
     if config.validation_dataset is None:
         return split_trajectories(dataset, config.validation_split, config.seed)
     validation = MarketDataset(config.validation_dataset)
@@ -63,6 +64,7 @@ def validation_data(dataset: MarketDataset, config: TrainingConfig):
 def train(
     dataset_directory: str | Path, output: str | Path, config: TrainingConfig
 ) -> tuple[Predictor, dict]:
+    """Train, select by validation loss, restore the best state, and publish a new checkpoint."""
     config.validate()
     definition = definition_for(config.model)
     require(not Path(output).exists(), "Checkpoint already exists; choose a new output path")
@@ -76,6 +78,7 @@ def train(
     model_config = configure_model(config.model, dataset.metadata, config.model_options)
     backbone = build_model(config.model, definition.version, model_config)
     normalizer = Standardizer(dataset.metadata["inputShape"][0])
+    # Validation statistics must not influence the transform learned from training.
     normalizer.fit(train_loader)
     predictor = Predictor(normalizer, backbone).to(config.device)
     optimizer = torch.optim.AdamW(
@@ -119,6 +122,8 @@ def train(
                 allow_nan=False,
             )
         )
+        # Checkpoint selection records every real improvement. Early stopping has
+        # its own min_delta threshold, so a tiny improvement can still be the best model.
         if val_metrics["loss"] < best_loss:
             best_loss = val_metrics["loss"]
             best_epoch = epoch
@@ -131,6 +136,8 @@ def train(
         if config.patience and stale_epochs >= config.patience:
             break
     require(best_state is not None, "Training did not produce a checkpoint")
+    # Discard the last epoch if an earlier one generalized better. Inference must
+    # restore these selected weights rather than whichever epoch happened to run last.
     predictor.load_state_dict(best_state)
     predictor.cpu().eval()
     payload = {

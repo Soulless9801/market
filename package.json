@@ -9,7 +9,9 @@
 		"lint": "eslint .",
 		"preview": "vite preview",
 		"test": "vitest run",
-		"dataset": "tsx --tsconfig tsconfig.scripts.json scripts/dataset.ts"
+		"dataset": "tsx --tsconfig tsconfig.scripts.json scripts/dataset.ts",
+		"simulate": "tsx --tsconfig tsconfig.scripts.json scripts/simulate.ts",
+		"validate:ml": "uv run --locked python -m pytest tests/python/test_end_to_end.py -q"
 	},
 	"dependencies": {
 		"react": "^19.2.8",

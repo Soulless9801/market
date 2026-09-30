@@ -2,6 +2,7 @@
 
 import re
 from collections.abc import Mapping
+from copy import deepcopy
 from pathlib import Path
 
 import torch
@@ -42,8 +43,24 @@ class CheckpointRegistry:
             validate_alias(alias)
             path = Path(checkpoint).resolve()
             if path not in loaded:
+                # Multiple deployment aliases may share the same saved model. Reuse
+                # its predictor and fitted buffers without rereading or rebuilding it.
                 loaded[path] = load_checkpoint(path)
             self._models[alias] = loaded[path]
+
+    def describe_models(self) -> dict:
+        """Publish only the feature/output contract needed to bind a runtime agent."""
+        return {
+            alias: deepcopy(
+                {
+                    "inputShape": payload["metadata"]["inputShape"],
+                    "features": payload["metadata"]["features"],
+                    "classNames": payload["metadata"]["classNames"],
+                    "outputType": payload["output_type"],
+                }
+            )
+            for alias, (_, payload) in self._models.items()
+        }
 
     def predict(self, alias: str, inputs: object) -> list[float]:
         if alias not in self._models:

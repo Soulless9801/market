@@ -31,6 +31,7 @@ export function* generateDataset(
 			agents: buildDefaultAgents(simulationSeed),
 			referencePrice: 100,
 		});
+		// Recreate all agents per trajectory so RNG state cannot bleed between seeds.
 		while (simulator.getClock() < settings.warmupSteps)
 			simulator.runStep();
 		for (
@@ -47,6 +48,8 @@ export function* generateDataset(
 
 			const step = simulator.getClock();
 			const input = [...builder.build(context)];
+			// Freeze today's features before stepping into the future to compute the label.
+			// A feature builder never sees the future price used below.
 			for (
 				let ahead = 0;
 				ahead < settings.horizonSteps;

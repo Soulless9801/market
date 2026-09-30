@@ -21,6 +21,8 @@ class MarketDataset(IterableDataset):
         self.path = self.directory / self.metadata["datasetFile"]
         self._signature = self._file_signature()
         self.trajectories = frozenset(range(self.metadata["generation"]["actualTrajectoryCount"]))
+        # Scan once to reject corrupt/truncated exports before any optimizer step.
+        # Later epochs reopen the same immutable file instead of storing all rows in RAM.
         checksum = hashlib.sha256()
         counts = [0] * self.metadata["numClasses"]
         count = 0
@@ -82,6 +84,8 @@ class MarketDataset(IterableDataset):
                 trajectory = index // self.metadata["generation"]["samplesPerTrajectory"]
                 if trajectory not in self.trajectories:
                     continue
+                # IterableDataset workers each read the file: assign disjoint rows
+                # explicitly so adding workers does not silently duplicate examples.
                 assigned = selected_index % workers == worker_id
                 selected_index += 1
                 if not assigned:
@@ -95,6 +99,7 @@ class MarketDataset(IterableDataset):
 
 
 def split_trajectories(dataset: MarketDataset, fraction: float, seed: int):
+    """Keep whole seeded simulations apart; nearby rows share market history and labels."""
     require(0 < fraction < 1, "validation_split must lie strictly between zero and one")
     trajectories = sorted(dataset.trajectories)
     require(

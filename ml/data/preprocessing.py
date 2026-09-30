@@ -14,6 +14,7 @@ class Standardizer(nn.Module):
 
     @torch.no_grad()
     def fit(self, batches) -> None:
+        """Fit only the training partition supplied by train(); never fit at inference time."""
         count = 0
         mean = torch.zeros_like(self.mean)
         squared_deviations = torch.zeros_like(self.mean)
@@ -24,6 +25,8 @@ class Standardizer(nn.Module):
             batch_deviations = ((values - batch_mean) ** 2).sum(dim=0)
             total = count + batch_count
             delta = batch_mean - mean
+            # Merge each batch's statistics with Welford's stable parallel update.
+            # float64 avoids loss of precision when features have very different scales.
             squared_deviations += batch_deviations + delta.square() * count * batch_count / total
             mean += delta * batch_count / total
             count = total
@@ -46,6 +49,8 @@ class Predictor(nn.Module):
 
     def __init__(self, normalizer: Standardizer, model: nn.Module):
         super().__init__()
+        # Saving one state_dict captures both fitted buffers and model weights, so
+        # training evaluation and the inference server use exactly the same transform.
         self.normalizer = normalizer
         self.model = model
 

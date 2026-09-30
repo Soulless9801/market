@@ -1,4 +1,9 @@
-"""The existing TypeScript schema-v1 contract, independent of model architecture."""
+"""Python's reader for the TypeScript schema-v1 contract, not a second dataset format.
+
+Validation checks both feature meaning and row provenance before training starts.
+Keep this module aligned with src/simulation/ml/dataset-contract.ts; labels and
+trajectory IDs describe offline examples but are never returned as model inputs.
+"""
 
 import json
 import math

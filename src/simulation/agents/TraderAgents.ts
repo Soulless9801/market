@@ -1,12 +1,8 @@
 import type { NewOrderRequest, OrderBookSnapshot } from "@/engine";
 import type {
-	AgentSimulatorContext, FeatureBuilder, FeatureNormalizer, Model,
-	SideModelPreset, ObservationRequirements,
+    AgentSimulatorContext, FeatureBuilder, PredictiveModel, ObservationRequirements,
 } from "@/simulation";
-import {
-	createSideResolver, createSideBuilder, createSideNormalizer,
-	SIDE_ACTIONS, FeatureManager, DEFAULT_SIDE_MODEL,
-} from "@/simulation";
+import { SIDE_ACTIONS, FeatureManager } from "@/simulation";
 
 export type AgentSideBias = "BUY" | "SELL" | "RANDOM";
 export type AgentSide = "BUY" | "SELL" | "HOLD";
@@ -17,7 +13,8 @@ export type ExecutionBehavior = "PASSIVE" | "AGGRESSIVE";
 export interface TraderAgent {
 	id: string;
 	readonly observation?: Readonly<ObservationRequirements>;
-	step(context: AgentSimulatorContext): NewOrderRequest[];
+	readonly asynchronous?: boolean;
+	step(context: AgentSimulatorContext): NewOrderRequest[] | Promise<NewOrderRequest[]>;
 }
 
 export interface MarketMakerAgentOptions {
@@ -70,7 +67,8 @@ export interface ImbalanceTraderAgentOptions {
 }
 
 export interface MLTraderAgentOptions extends ImbalanceTraderAgentOptions {
-	sideModel?: SideModelPreset;
+	model: PredictiveModel;
+	featureLayout: string;
 }
 
 export class SeededRandom {
@@ -246,13 +244,7 @@ export function buildDefaultAgents(seed: number, referencePrice = 100): TraderAg
 			executionStyle: "RANDOM",
 			maxPriceOffset: 1,
 		}),
-		// new MLTraderAgent("ml-1", {
-		// 	referencePrice,
-		// 	spread: 2,
-		// 	quantity: 5,
-		// 	seed: seed + 13,
-		// 	maxPriceOffset: 1,
-		// }),
+
 	];
 }
 
@@ -270,10 +262,17 @@ export function buildRandomAgents(seed: number, referencePrice = 100, count = 10
 	return agents;
 }
 
-export function buildAgents(seed: number, referencePrice = 100): TraderAgent[] {
+export function buildAgents(
+	seed: number, referencePrice = 100,
+	prediction?: Pick<MLTraderAgentOptions, "model" | "featureLayout">,
+): TraderAgent[] {
 	const agentCount = 10;
 	const bots: TraderAgent[] = buildRandomAgents(seed, referencePrice, agentCount);
+	// Browser-only callers have no subprocess transport. Add ML only when the host
+	// supplies a model binding; never silently substitute a different local model.
+	if (!prediction) return bots;
 	const mlAgent = new MLTraderAgent("ml-" + agentCount, {
+		...prediction,
 		referencePrice,
 		spread: 2,
 		quantity: 5,
@@ -926,75 +925,61 @@ export function randomImbalanceTraderAgent(id: string, seed: number, referencePr
 	});
 }
 
+/** Turns public observations into orders without knowing the model's architecture or transport. */
 export class MLTraderAgent implements TraderAgent {
 	readonly id: string;
+	readonly asynchronous = true;
 	readonly observation: Readonly<ObservationRequirements>;
 	private readonly minimumWarmupSteps: number;
-	// private readonly referencePrice: number;
 	private readonly spread: number;
 	private readonly quantity: number;
 	private readonly executionStyle: ExecutionStyle;
 	private readonly maxPriceOffset: number;
 	private readonly random: SeededRandom;
 
-	private readonly side_builder: FeatureBuilder;
-	private readonly side_norm: FeatureNormalizer;
-
-	private readonly side_model: Model;
-	// private readonly price_model: Model;
+	private readonly featureBuilder: FeatureBuilder;
+	private readonly model: PredictiveModel;
 
 	constructor(id: string, options: MLTraderAgentOptions) {
 		this.id = id;
-		// this.referencePrice = options.referencePrice;
 		this.spread = Math.max(1, options.spread);
 		this.quantity = Math.max(1, options.quantity);
 		this.executionStyle = options.executionStyle ?? "AGGRESSIVE";
 		this.maxPriceOffset = Math.max(0, options.maxPriceOffset ?? 1);
 		this.random = new SeededRandom(options.seed);
-		const definition = FeatureManager.describe(
-			(options.sideModel ?? DEFAULT_SIDE_MODEL).featureLayout,
-		);
+		const definition = FeatureManager.describe(options.featureLayout);
 		this.observation = definition;
 		this.minimumWarmupSteps = definition.minimumWarmupSteps;
-		this.side_builder = createSideBuilder(options.sideModel);
-		this.side_norm = createSideNormalizer(options.sideModel);
-		this.side_model = createSideResolver(
-			this.side_builder,
-			this.random,
-			options.sideModel,
-		);
+		this.featureBuilder = FeatureManager.create(options.featureLayout);
+		this.model = options.model;
 	}
 
-	step(context: AgentSimulatorContext): NewOrderRequest[] {
-		// runStep increments the clock before exposing the previous completed history.
-		if (context.clock <= this.minimumWarmupSteps) return [];
-		const side = this.resolveSide(context);
+	async step(context: AgentSimulatorContext): Promise<NewOrderRequest[]> {
+		// Features use the completed observation step, exactly like the training dataset.
+		const observationClock = context.observationClock ?? context.clock;
+		if (observationClock < this.minimumWarmupSteps) return [];
+		// Explicit public allowlist: even a third-party builder never receives portfolio data.
+		const { midPrice, referencePrice, spread, orderBook, recentTrades,
+			recentMidPriceSeries, orderImbalance } = context;
+		const input = this.featureBuilder.build(structuredClone({
+			clock: observationClock, midPrice, referencePrice, spread, orderBook, recentTrades,
+			recentMidPriceSeries, orderImbalance,
+		}));
+		if (input.length !== this.featureBuilder.featureCount || !Array.from(input).every(value => typeof value === "number" && Number.isFinite(value))) {
+			throw new Error("Feature builder returned invalid input");
+		}
+		const output = await this.model.predict(input);
+		// Reject invalid scores before drawing randomness or constructing an order.
+		// Argmax consumes logits directly; ties retain the schema's first action.
+		if (!Array.isArray(output) || output.length !== SIDE_ACTIONS.length ||
+			!Array.from(output).every(value => typeof value === "number" && Number.isFinite(value))) {
+			throw new Error("Side model must return one finite score per action");
+		}
+		const side = SIDE_ACTIONS[output.indexOf(Math.max(...output))];
 		if (side === "HOLD") return [];
 		const price = this.calculateOrderPrice(side, context);
-		const quantity = Math.max(
-			1,
-			Math.round(this.quantity + this.random.next() * 3),
-		);
-
-		return [
-			{
-				participantId: this.id,
-				side,
-				type: "LIMIT",
-				quantity,
-				price,
-			},
-		];
-	}
-
-	private resolveSide(context: AgentSimulatorContext): AgentSide {
-		const input = this.side_builder.build(context);
-		const norm = this.side_norm.transform(input);
-		const output = this.side_model.predict(norm);
-		// find index of max output value
-		const mx = Math.max(...output);
-		const maxIndex = output.indexOf(mx);
-		return SIDE_ACTIONS[maxIndex];
+		const quantity = Math.max(1, Math.round(this.quantity + this.random.next() * 3));
+		return [{ participantId: this.id, side, type: "LIMIT", quantity, price }];
 	}
 
 	private calculateOrderPrice(

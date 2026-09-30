@@ -13,6 +13,7 @@ def validate_logits(logits, targets, num_classes: int):
 
 @torch.no_grad()
 def evaluate(model: nn.Module, batches, num_classes: int, device="cpu") -> dict:
+    """Weight metrics by sample count so a short final batch is not over-represented."""
     model.eval()
     loss_sum = 0.0
     count = 0

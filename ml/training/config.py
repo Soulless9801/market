@@ -8,6 +8,8 @@ from ml.data.schema import integer, require
 
 @dataclass(frozen=True)
 class TrainingConfig:
+    """Run settings separate from architecture-specific options persisted in model_config."""
+
     model: str = "mlp"
     seed: int = 42
     learning_rate: float = 0.001

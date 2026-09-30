@@ -6,7 +6,7 @@ export class NamedRegistry<T> {
 		this.category = category;
 	}
 	register(name: string, value: T): void {
-		if (!/^[a-z][a-z0-9_-]*$/.test(name))
+		if (typeof name !== "string" || !/^[a-z][a-z0-9_-]*$/.test(name) || /[\r\n]/.test(name))
 			throw new Error(
 				`Invalid ${this.category} name: ${name}`,
 			);

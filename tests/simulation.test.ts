@@ -1,10 +1,9 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { Exchange, type BookLevelSnapshot } from "@/engine";
 import {
 	buildDefaultAgents,
 	buildAgents,
-	MLP,
 	MLTraderAgent,
 	MarketMakerAgent,
 	RetailTraderAgent,
@@ -91,24 +90,11 @@ function createAgentContext(
 
 
 describe("simulation", () => {
-	it("runs the browser agent population through inference after warmup", () => {
+	it("runs the browser baseline without loading native ML artifacts", () => {
 		const agents = buildAgents(7, 100);
-		expect(agents.some(agent => agent instanceof MLTraderAgent)).toBe(true);
+		expect(agents.some(agent => agent instanceof MLTraderAgent)).toBe(false);
 		const simulator = new Simulator({ agents, referencePrice: 100 });
-		const predict = vi.spyOn(MLP.prototype, "predict");
-		try {
-			for (let step = 1; step <= 100; step++) {
-				expect(simulator.runStep().step).toBe(step);
-			}
-			expect(predict).toHaveBeenCalled();
-			for (const result of predict.mock.results) {
-				expect(result.type).toBe("return");
-				expect(result.value).toHaveLength(3);
-				expect(result.value.every(Number.isFinite)).toBe(true);
-			}
-		} finally {
-			predict.mockRestore();
-		}
+		expect(simulator.runSteps(100)).toHaveLength(100);
 	});
 
 	// it("builds the default market composition with one market maker and three retail traders", () => {

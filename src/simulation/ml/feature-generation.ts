@@ -133,6 +133,11 @@ export interface FeatureDefinition extends ObservationRequirements {
 	description: string;
 }
 
+/**
+ * Layout definitions own feature order, shape, warmup and observation limits.
+ * Dataset exporters and runtime agents ask this registry instead of inferring
+ * those properties from a model name. A layout need not share an architecture ID.
+ */
 export class FeatureManager {
 	private static readonly registry = new NamedRegistry<
 		Readonly<FeatureDefinition>
