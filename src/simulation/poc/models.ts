@@ -1,3 +1,4 @@
+import { NamedRegistry } from "@/simulation/registry";
 import { SeededRandom } from "@/simulation/agents";
 import type { Optimizer } from "./optimizers";
 
@@ -1169,63 +1170,78 @@ export class CNN implements Model {
 	}
 }
 
-// type for model constructors
-type ModelConstructor = new (config: ModelConfig, random: SeededRandom) => Model;
+export interface ModelDefinition {
+	create(config: ModelConfig, random: SeededRandom): Model;
+	configure(inputSize: number, outputSize: number): ModelConfig;
+}
 
-// model manager class
+/** Model construction and its default configuration are registered together. */
 export class ModelManager {
-
-	// registry for model constructors
-	private static readonly registry = new Map<string, ModelConstructor>([
-		["mlp", MLP],
-		["cnn", CNN],
-	]);
-
-	// build a model from the registry
+	private static readonly registry = new NamedRegistry<
+		Readonly<ModelDefinition>
+	>("model");
+	static register(name: string, definition: ModelDefinition): void {
+		if (
+			typeof definition.create !== "function" ||
+			typeof definition.configure !== "function"
+		) {
+			throw new Error(`Invalid model definition: ${name}`);
+		}
+		this.registry.register(
+			name,
+			Object.freeze({
+				create: definition.create,
+				configure: definition.configure,
+			}),
+		);
+	}
+	static names(): string[] {
+		return this.registry.names();
+	}
+	static configure(
+		name: string,
+		inputSize: number,
+		outputSize: number,
+	): ModelConfig {
+		const config = this.registry
+			.get(name)
+			.configure(inputSize, outputSize);
+		if (config.kind !== name)
+			throw new Error(
+				`Architecture kind ${config.kind} does not match model: ${name}`,
+			);
+		return config;
+	}
 	static build(
-		modelName: string,
+		name: string,
 		config: ModelConfig,
 		random: SeededRandom,
 	): Model {
-		const builder = this.registry.get(modelName);
-		if (!builder) {
+		const definition = this.registry.get(name);
+		if (config.kind !== name)
 			throw new Error(
-				`No model builder registered for model: ${modelName}`,
+				`Architecture kind ${config.kind} does not match model: ${name}`,
 			);
-		}
-		if (config.kind !== modelName) {
-			throw new Error(
-				`Architecture kind ${config.kind} does not match model: ${modelName}`,
-			);
-		}
-		return new builder(config, random);
+		return definition.create(config, random);
 	}
 }
 
-// constructor type for configs
-type ConfigConstructor = new () => ConfigGenerator;
-
-// config manager class
+/** Compatibility facade; configuration has the same source of truth as construction. */
 export class ConfigManager {
-
-	// registry for config constructors
-	private static readonly registry = new Map<string, ConfigConstructor>([
-		["mlp", MLPGenerator],
-		["cnn", CNNGenerator],
-	]);
-
-	// build config from the registry
 	static build(
 		model: string,
-		inp: number,
-		out: number,
+		inputSize: number,
+		outputSize: number,
 	): ModelConfig {
-		const builder = this.registry.get(model);
-		if (!builder) {
-			throw new Error(
-				`No architecture builder registered for model: ${model}`,
-			);
-		}
-		return new builder().g(inp, out);
+		return ModelManager.configure(model, inputSize, outputSize);
 	}
 }
+
+ModelManager.register("mlp", {
+	create: (config, random) => new MLP(config, random),
+	configure: (input, output) => new MLPGenerator().g(input, output),
+});
+ModelManager.register("cnn", {
+	create: (config, random) => new CNN(config, random),
+	configure: (input, output) => new CNNGenerator().g(input, output),
+});

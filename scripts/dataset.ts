@@ -1,3 +1,4 @@
+import { FeatureManager } from "../src/simulation/ml/feature-generation";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
@@ -5,16 +6,13 @@ import {
 	DEFAULT_DATASET_OPTIONS,
 	createDatasetContract,
 } from "../src/simulation/ml/dataset-contract";
-import type {
-	DatasetModel,
-	DatasetOptions,
-} from "../src/simulation/ml/dataset-contract";
+import type { DatasetOptions } from "../src/simulation/ml/dataset-contract";
 import { generateDataset } from "../src/simulation/ml/dataset-generation";
 import { exportDataset } from "../src/simulation/ml/dataset-export";
-import type { TrainingExample } from "../src/simulation/ml/data";
+import type { TrainingExample } from "../src/simulation/poc/data";
 
 // Retain the old raw-example helper for callers; large exports use the lazy generator.
-export type { TrainingExample } from "../src/simulation/ml/data";
+export type { TrainingExample } from "../src/simulation/poc/data";
 export function generateSideDataset(options: {
 	model: string;
 	seed: number;
@@ -24,7 +22,7 @@ export function generateSideDataset(options: {
 }): TrainingExample[] {
 	const settings = {
 		...DEFAULT_DATASET_OPTIONS,
-		model: options.model as DatasetModel,
+		model: options.model,
 		seed: options.seed,
 		warmupSteps: options.offset,
 		horizonSteps: options.gap,
@@ -52,12 +50,13 @@ export async function main(args = process.argv.slice(2)): Promise<void> {
 		},
 	});
 	if (values.help) {
-		console.log(`Usage: npm run dataset -- <mlp|cnn> [options]
-  --output PATH     New output directory (datasets/training/<model>)
+		console.log(`Usage: npm run dataset -- <layout> [options]
+  Layouts: ${FeatureManager.names().join(", ")}
+  --output PATH     New output directory (datasets/training/<layout>)
   --seed N          Base uint32 simulation seed (42)
   --samples N       Number of samples (10000)
   --trajectories N  Requested independent trajectories (20)
-  --warmup N        Completed steps before sampling (42; MLP minimum 20)
+  --warmup N        Completed steps before sampling (42; minimum is specified by the layout)
   --horizon N       Label horizon and sample spacing in steps (10)
 
 Writes raw public features to dataset.jsonl and a versioned metadata.json.
@@ -65,11 +64,12 @@ Existing output directories are rejected. Legacy dataset/scaler files are unchan
 		return;
 	}
 	const model = positionals[0];
-	if (positionals.length !== 1 || (model !== "mlp" && model !== "cnn")) {
+	if (positionals.length !== 1) {
 		throw new Error(
-			"Specify one feature layout: mlp or cnn. Use --help for options.",
+			`Specify one feature layout: ${FeatureManager.names().join(", ")}. Use --help for options.`,
 		);
 	}
+	FeatureManager.describe(model);
 	const integerOption = (
 		value: string | undefined,
 		fallback: number,

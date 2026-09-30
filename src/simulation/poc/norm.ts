@@ -1,3 +1,4 @@
+import { NamedRegistry } from "@/simulation/registry";
 // parent interface
 export interface FeatureNormalizer {
 
@@ -72,18 +73,25 @@ type NormalizerConstructor = new () => FeatureNormalizer;
 
 // normalizer manager class
 export class NormalizerManager {
-
-    // registry of normalizer constructors
-    private static readonly registry = new Map<string, NormalizerConstructor>([
-        ["gaussian", GaussianNormalizer],
-    ]);
-
-    // return a fitted normalizer instance by name
-    static getNormalizer(name: string, samples: number[][] | null): FeatureNormalizer {
-        const normalizer = this.registry.get(name);
-        if (!normalizer) throw new Error(`Feature normalizer "${name}" not found.`);
-        const instance = new normalizer();
-        if (samples) instance.fit(samples);
-        return instance;
-    }
+	private static readonly registry =
+		new NamedRegistry<NormalizerConstructor>("normalizer");
+	static register(
+		name: string,
+		constructor: NormalizerConstructor,
+	): void {
+		this.registry.register(name, constructor);
+	}
+	static names(): string[] {
+		return this.registry.names();
+	}
+	static getNormalizer(
+		name: string,
+		samples: number[][] | null,
+	): FeatureNormalizer {
+		const Constructor = this.registry.get(name);
+		const normalizer = new Constructor();
+		if (samples) normalizer.fit(samples);
+		return normalizer;
+	}
 }
+NormalizerManager.register("gaussian", GaussianNormalizer);

@@ -1,4 +1,6 @@
-import type { ObservableSimulatorContext } from '../simulator';
+import { NamedRegistry } from "@/simulation/registry";
+import { MLP_FEATURE_SCHEMA, CNN_FEATURE_SCHEMA } from "./feature-presets";
+import type { ObservableSimulatorContext, ObservationRequirements } from '@/simulation/simulator';
 
 export interface FeatureBuilder {
     // number of features produced by this builder
@@ -121,20 +123,102 @@ export class CNNFeatureBuilder implements FeatureBuilder {
     }
 }
 
-type FeatureBuilderConstructor = new () => FeatureBuilder;
+export interface FeatureDefinition extends ObservationRequirements {
+	create(): FeatureBuilder;
+	version: number;
+	names: readonly string[];
+	minimumWarmupSteps: number;
+	historyOrder: string;
+	padding: string;
+	description: string;
+}
 
 export class FeatureManager {
-
-    // map model name to feature builder constructor
-    private static readonly registry = new Map<string, FeatureBuilderConstructor>([
-        ['mlp', MLPFeatureBuilder],
-        ['cnn', CNNFeatureBuilder],
-    ]);
-
-    // create a feature builder instance based on model name
-    static create(modelName: string): FeatureBuilder {
-        const builder = this.registry.get(modelName);
-        if (!builder) throw new Error(`No feature builder registered for model: ${modelName}`);
-        return new builder();
-    }
+	private static readonly registry = new NamedRegistry<
+		Readonly<FeatureDefinition>
+	>("feature layout");
+	static register(name: string, definition: FeatureDefinition): void {
+		const counts = [
+			definition.minimumWarmupSteps,
+			definition.priceHistoryLimit,
+			definition.tradeHistoryLimit,
+		];
+		if (
+			counts.some(
+				(value) =>
+					!Number.isSafeInteger(value) ||
+					value < 0,
+			) ||
+			!Number.isSafeInteger(definition.version) ||
+			definition.version < 1 ||
+			!Number.isSafeInteger(definition.bookDepth) ||
+			definition.bookDepth < 1 ||
+			definition.priceHistoryLimit > 1000 ||
+			definition.tradeHistoryLimit > 1000 ||
+			definition.names.length === 0 ||
+			new Set(definition.names).size !==
+				definition.names.length ||
+			definition.names.some(
+				(value) =>
+					typeof value !== "string" ||
+					!value.trim(),
+			) ||
+			[
+				definition.historyOrder,
+				definition.padding,
+				definition.description,
+			].some(
+				(value) =>
+					typeof value !== "string" ||
+					!value.trim(),
+			)
+		) {
+			throw new Error(`Invalid feature definition: ${name}`);
+		}
+		const builder = definition.create();
+		if (builder.featureCount !== definition.names.length)
+			throw new Error(
+				`Feature count does not match metadata: ${name}`,
+			);
+		// Copy an allowlist: registration must not leak private fields to metadata.
+		this.registry.register(
+			name,
+			Object.freeze({
+				create: definition.create,
+				version: definition.version,
+				names: Object.freeze([...definition.names]),
+				minimumWarmupSteps:
+					definition.minimumWarmupSteps,
+				priceHistoryLimit: definition.priceHistoryLimit,
+				tradeHistoryLimit: definition.tradeHistoryLimit,
+				bookDepth: definition.bookDepth,
+				historyOrder: definition.historyOrder,
+				padding: definition.padding,
+				description: definition.description,
+			}),
+		);
+	}
+	static names(): string[] {
+		return this.registry.names();
+	}
+	static describe(name: string): Readonly<FeatureDefinition> {
+		return this.registry.get(name);
+	}
+	static create(name: string): FeatureBuilder {
+		const definition = this.describe(name);
+		const builder = definition.create();
+		if (builder.featureCount !== definition.names.length)
+			throw new Error(
+				`Feature count does not match metadata: ${name}`,
+			);
+		return builder;
+	}
 }
+FeatureManager.register("mlp", {
+	...MLP_FEATURE_SCHEMA,
+	create: () => new MLPFeatureBuilder(),
+});
+FeatureManager.register("cnn", {
+	...CNN_FEATURE_SCHEMA,
+	create: () => new CNNFeatureBuilder(),
+});

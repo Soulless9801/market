@@ -1,6 +1,2 @@
-// TODO: add modularized dataloader
-
-// TODO: handle thrown errors
-
-// TODO: add comments
+TODO: python!
 

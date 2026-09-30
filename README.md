@@ -45,6 +45,13 @@ existing directories are protected from overwriting. See the
 The existing normalized datasets and TypeScript training command remain available
 as the legacy baseline. Python training is a later phase.
 
+## Model extensibility
+
+Models, feature layouts, normalizers and legacy datasets have separate registration
+APIs. Shared pipelines discover available registrations; runtime defaults live in
+`src/simulation/ml/runtime-presets.ts`. See [adding models and feature layouts](docs/model-extensibility.md)
+for the extension points, custom entry points and agent configuration.
+
 ## Features
 
 A number of typical market participant behaviors are represented in this project. This includes market making, retail trading, momentum trading, and imbalance trading. Each agent operates on the same simulated limit order book while using different strategies and observable market information to make trading decisions.

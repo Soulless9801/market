@@ -1,7 +1,9 @@
-import type { AgentSide } from "../agents";
+import type { AgentSide } from "@/simulation/agents";
 import { SIDE_ACTIONS } from "./types";
+import { FeatureManager } from "./feature-generation";
 
-export type DatasetModel = "mlp" | "cnn";
+/** Feature-layout identifier; retained name for schema-v1/API compatibility. */
+export type DatasetModel = string;
 
 export interface DatasetOptions {
 	model: DatasetModel;
@@ -53,13 +55,12 @@ function assertInteger(
 }
 
 export function validateDatasetOptions(options: DatasetOptions): void {
-	if (options.model !== "mlp" && options.model !== "cnn")
-		throw new Error("model must be mlp or cnn.");
+	const definition = FeatureManager.describe(options.model);
 	assertInteger(options.seed, "seed", 0, 0xffffffff);
 	assertInteger(
 		options.warmupSteps,
 		"warmupSteps",
-		options.model === "mlp" ? HISTORY_STEPS : 0,
+		definition.minimumWarmupSteps,
 	);
 	assertInteger(options.horizonSteps, "horizonSteps", 1);
 	assertInteger(options.sampleCount, "sampleCount", 1);
@@ -113,70 +114,32 @@ export function classifyMidPriceChange(
 			: "HOLD";
 }
 
-function featureNames(model: DatasetModel): string[] {
-	if (model === "cnn")
-		return Array.from(
-			{ length: 30 },
-			(_, i) => `midprice_window_${i}`,
-		);
-	return [
-		"log_midprice_over_reference",
-		"log_history_max_over_reference",
-		"log_history_min_over_reference",
-		"log_midprice_over_last",
-		"log_midprice_over_middle_observation",
-		"log_midprice_over_first",
-		"spread_over_midprice",
-		"book_bid_volume_fraction",
-		"recent_trade_count_imbalance",
-		"log1p_rms_log_return",
-		"top_level_quantity_imbalance",
-		"log_best_bid_over_midprice",
-		"log_best_ask_over_midprice",
-		"log1p_best_bid_quantity",
-		"log1p_best_ask_quantity",
-		...Array.from(
-			{ length: HISTORY_STEPS },
-			(_, i) => `chronological_log_return_${i}`,
-		),
-		...Array.from(
-			{ length: 5 },
-			(_, i) => `depth_quantity_imbalance_${i}`,
-		),
-	];
-}
-
 /** Construct canonical, deterministic metadata; no timestamps or machine paths. */
 export function createDatasetContract(options: DatasetOptions) {
 	validateDatasetOptions(options);
+	const definition = FeatureManager.describe(options.model);
 	const samplesPerTrajectory = Math.ceil(
 		options.sampleCount / options.trajectoryCount,
 	);
 	return {
 		schemaVersion: 1 as const,
 		datasetType: "market-side-classification" as const,
-		inputShape: [options.model === "mlp" ? 40 : 30],
+		inputShape: [definition.names.length],
 		targetType: "classification" as const,
 		targetEncoding: "class-index" as const,
 		numClasses: SIDE_ACTIONS.length,
 		classNames: [...SIDE_ACTIONS],
 		features: {
-			version: 1,
+			version: definition.version,
 			kind: options.model,
-			names: featureNames(options.model),
+			names: [...definition.names],
 			normalization: "none" as const,
-			historyOrder: "oldest-to-newest" as const,
-			priceHistoryLimit: HISTORY_STEPS,
-			tradeHistoryLimit: TRADE_HISTORY_LIMIT,
-			bookDepth: 10,
-			padding:
-				options.model === "mlp"
-					? "none-require-20-history-observations"
-					: "prepend-current-midprice-to-length-30",
-			description:
-				options.model === "mlp"
-					? "15 market summaries, 20 chronological log returns (last ends at current midprice), 5 signed depth imbalances; middle price is chronological, volatility is RMS return; invalid log-price ratios and non-finite summaries become zero."
-					: "30 price levels: up to 20 historical pre-order midprices, left-padded with the current midprice; padding is not additional historical data.",
+			historyOrder: definition.historyOrder,
+			priceHistoryLimit: definition.priceHistoryLimit,
+			tradeHistoryLimit: definition.tradeHistoryLimit,
+			bookDepth: definition.bookDepth,
+			padding: definition.padding,
+			description: definition.description,
 		},
 		label: {
 			quantity: "future-midprice-minus-current-midprice",

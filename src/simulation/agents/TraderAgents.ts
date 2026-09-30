@@ -1,6 +1,12 @@
 import type { NewOrderRequest, OrderBookSnapshot } from "@/engine";
-import type { AgentSimulatorContext, FeatureBuilder, FeatureNormalizer, Model } from "@/simulation";
-import { createSideResolver, createSideBuilder, createSideNormalizer, SIDE_ACTIONS } from "@/simulation";
+import type {
+	AgentSimulatorContext, FeatureBuilder, FeatureNormalizer, Model,
+	SideModelPreset, ObservationRequirements,
+} from "@/simulation";
+import {
+	createSideResolver, createSideBuilder, createSideNormalizer,
+	SIDE_ACTIONS, FeatureManager, DEFAULT_SIDE_MODEL,
+} from "@/simulation";
 
 export type AgentSideBias = "BUY" | "SELL" | "RANDOM";
 export type AgentSide = "BUY" | "SELL" | "HOLD";
@@ -10,6 +16,7 @@ export type ExecutionBehavior = "PASSIVE" | "AGGRESSIVE";
 
 export interface TraderAgent {
 	id: string;
+	readonly observation?: Readonly<ObservationRequirements>;
 	step(context: AgentSimulatorContext): NewOrderRequest[];
 }
 
@@ -62,7 +69,9 @@ export interface ImbalanceTraderAgentOptions {
 	maxPriceOffset?: number;
 }
 
-export type MLTraderAgentOptions = ImbalanceTraderAgentOptions; // placeholder for now, can be extended later
+export interface MLTraderAgentOptions extends ImbalanceTraderAgentOptions {
+	sideModel?: SideModelPreset;
+}
 
 export class SeededRandom {
 	private state: number;
@@ -919,6 +928,8 @@ export function randomImbalanceTraderAgent(id: string, seed: number, referencePr
 
 export class MLTraderAgent implements TraderAgent {
 	readonly id: string;
+	readonly observation: Readonly<ObservationRequirements>;
+	private readonly minimumWarmupSteps: number;
 	// private readonly referencePrice: number;
 	private readonly spread: number;
 	private readonly quantity: number;
@@ -940,16 +951,30 @@ export class MLTraderAgent implements TraderAgent {
 		this.executionStyle = options.executionStyle ?? "AGGRESSIVE";
 		this.maxPriceOffset = Math.max(0, options.maxPriceOffset ?? 1);
 		this.random = new SeededRandom(options.seed);
-		this.side_builder = createSideBuilder();
-		this.side_norm = createSideNormalizer();
-		this.side_model = createSideResolver(this.side_builder, this.random);
+		const definition = FeatureManager.describe(
+			(options.sideModel ?? DEFAULT_SIDE_MODEL).featureLayout,
+		);
+		this.observation = definition;
+		this.minimumWarmupSteps = definition.minimumWarmupSteps;
+		this.side_builder = createSideBuilder(options.sideModel);
+		this.side_norm = createSideNormalizer(options.sideModel);
+		this.side_model = createSideResolver(
+			this.side_builder,
+			this.random,
+			options.sideModel,
+		);
 	}
 
 	step(context: AgentSimulatorContext): NewOrderRequest[] {
+		// runStep increments the clock before exposing the previous completed history.
+		if (context.clock <= this.minimumWarmupSteps) return [];
 		const side = this.resolveSide(context);
 		if (side === "HOLD") return [];
 		const price = this.calculateOrderPrice(side, context);
-		const quantity = Math.max(1, Math.round(this.quantity + this.random.next() * 3));
+		const quantity = Math.max(
+			1,
+			Math.round(this.quantity + this.random.next() * 3),
+		);
 
 		return [
 			{
@@ -972,22 +997,42 @@ export class MLTraderAgent implements TraderAgent {
 		return SIDE_ACTIONS[maxIndex];
 	}
 
-	private calculateOrderPrice(side: AgentSide, context: AgentSimulatorContext): number {
+	private calculateOrderPrice(
+		side: AgentSide,
+		context: AgentSimulatorContext,
+	): number {
 		const bestBid = context.orderBook.bids[0]?.price;
 		const bestAsk = context.orderBook.asks[0]?.price;
 		const offset = this.random.next() * this.maxPriceOffset;
 
 		if (this.executionStyle === "PASSIVE") {
 			if (side === "BUY") {
-				return Math.max(1, (bestBid ?? context.midPrice - this.spread / 2) - offset);
+				return Math.max(
+					1,
+					(bestBid ??
+						context.midPrice -
+							this.spread / 2) -
+						offset,
+				);
 			}
-			return Math.max(1, (bestAsk ?? context.midPrice + this.spread / 2) + offset);
+			return Math.max(
+				1,
+				(bestAsk ??
+					context.midPrice + this.spread / 2) +
+					offset,
+			);
 		}
 
 		if (side === "BUY") {
-			return bestAsk ?? context.midPrice + this.spread / 2 + offset;
+			return (
+				bestAsk ??
+				context.midPrice + this.spread / 2 + offset
+			);
 		}
 
-		return Math.max(1, bestBid ?? context.midPrice - this.spread / 2 - offset);
+		return Math.max(
+			1,
+			bestBid ?? context.midPrice - this.spread / 2 - offset,
+		);
 	}
 }

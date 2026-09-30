@@ -37,6 +37,13 @@ export interface SimulatorStatistics {
 // 	tradeCount: number;
 // }
 
+/** Public observation requested by an agent or feature layout. */
+export interface ObservationRequirements {
+	tradeHistoryLimit: number;
+	priceHistoryLimit: number;
+	bookDepth: number;
+}
+
 export interface ObservableSimulatorContext {
 	clock: number;
 	midPrice: number;
@@ -88,6 +95,16 @@ export class Simulator {
 	runStep(): StepResult {
 		this.clock += 1;
 		const observableContext = this.getObservableContext();
+		// Capture every agent's view before any agent acts or the history advances.
+		const observations = new Map<TraderAgent, ObservableSimulatorContext>();
+		for (const agent of this.agents) {
+			if (agent.observation) {
+				const { tradeHistoryLimit, priceHistoryLimit, bookDepth } = agent.observation;
+				observations.set(agent, this.getObservableContext(
+					tradeHistoryLimit, priceHistoryLimit, bookDepth,
+				));
+			}
+		}
 		this.midPriceHistory.pushBack(observableContext.midPrice);
 		const reports: ExecutionReport[] = [];
 		const stepEvents: SimulationEvent[] = [];
@@ -98,7 +115,9 @@ export class Simulator {
 				timestamp: this.clock,
 				agentId: agent.id,
 			});
-			const agentContext = this.getAgentContext(agent.id, observableContext);
+			const agentContext = this.getAgentContext(
+				agent.id, observations.get(agent) ?? observableContext,
+			);
 
 			const orders = agent.step(agentContext);
 			for (const order of orders) {
@@ -244,8 +263,15 @@ export class Simulator {
 	getObservableContext(
 		tradeHistoryLimit = 20,
 		priceHistoryLimit = 20,
+		bookDepth = 10,
 	): ObservableSimulatorContext {
-		const orderBook = this.exchange.getOrderBookSnapshot();
+		if (
+			![tradeHistoryLimit, priceHistoryLimit, bookDepth].every(Number.isSafeInteger) ||
+			tradeHistoryLimit < 0 || priceHistoryLimit < 0 || bookDepth < 1
+		) {
+			throw new Error("Observation limits must be non-negative integers and book depth must be positive.");
+		}
+		const orderBook = this.exchange.getOrderBookSnapshot(bookDepth);
 
 		const midPrice = this.calculateMidPrice(orderBook);
 
@@ -263,8 +289,10 @@ export class Simulator {
 			referencePrice: this.referencePrice,
 			spread,
 			orderBook,
-			recentTrades: this.getLimitedTradeHistory(tradeHistoryLimit),
-			recentMidPriceSeries: this.getMidPriceHistory().slice(-priceHistoryLimit),
+			recentTrades: tradeHistoryLimit === 0
+				? [] : this.getLimitedTradeHistory(tradeHistoryLimit),
+			recentMidPriceSeries: priceHistoryLimit === 0
+				? [] : this.getMidPriceHistory().slice(-priceHistoryLimit),
 			orderImbalance: calculateRecentOrderImbalance(orderBook),
 		};
 	}

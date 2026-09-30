@@ -1,11 +1,9 @@
-import { Simulator } from "../simulator/Simulator";
-import { buildDefaultAgents } from "../agents/TraderAgents";
-import { FeatureManager } from "./features";
+import { Simulator } from "@/simulation/simulator/Simulator";
+import { buildDefaultAgents } from "@/simulation/agents/TraderAgents";
+import { FeatureManager } from "./feature-generation";
 import {
 	classifyMidPriceChange,
 	createDatasetContract,
-	HISTORY_STEPS,
-	TRADE_HISTORY_LIMIT,
 	trajectorySeed,
 	validateDatasetExample,
 } from "./dataset-contract";
@@ -42,9 +40,11 @@ export function* generateDataset(
 			index++
 		) {
 			const context = simulator.getObservableContext(
-				TRADE_HISTORY_LIMIT,
-				HISTORY_STEPS,
+				contract.features.tradeHistoryLimit,
+				contract.features.priceHistoryLimit,
+				contract.features.bookDepth,
 			);
+
 			const step = simulator.getClock();
 			const input = [...builder.build(context)];
 			for (

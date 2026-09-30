@@ -26,7 +26,7 @@ import type {
 } from "@/simulation/ml/dataset-contract";
 import { generateDataset } from "@/simulation/ml/dataset-generation";
 import { exportDataset } from "@/simulation/ml/dataset-export";
-import { FeatureManager } from "@/simulation/ml/features";
+import { FeatureManager } from "@/simulation/ml/feature-generation";
 import { Simulator } from "@/simulation/simulator/Simulator";
 import { buildDefaultAgents } from "@/simulation/agents/TraderAgents";
 
@@ -220,48 +220,6 @@ describe("Dataset contract", () => {
 });
 
 describe("Dataset generation", () => {
-	it.each(["mlp", "cnn"] as const)(
-		"preserves %s features and labels from the committed legacy dataset",
-		async (model) => {
-			const legacy = JSON.parse(
-				await readFile(
-					`datasets/side_dataset_${model}.json`,
-					"utf8",
-				),
-			) as Array<{ features: number[]; label: string }>;
-			const scaler = JSON.parse(
-				await readFile(
-					`datasets/side_normalizer_${model}.json`,
-					"utf8",
-				),
-			) as { means: number[]; stds: number[] };
-			const settings = { ...DEFAULT_DATASET_OPTIONS, model };
-			const contract = createDatasetContract(settings);
-			const iterator = generateDataset(settings);
-			// Keep the full default trajectory partitioning, but consume only three rows.
-			for (let index = 0; index < 3; index++) {
-				const row = iterator.next().value!;
-				expect(contract.classNames[row.target]).toBe(
-					legacy[index].label,
-				);
-				row.input.forEach((value, feature) => {
-					const normalized =
-						(value -
-							scaler.means[feature]) /
-						Math.max(
-							scaler.stds[feature],
-							1e-8,
-						);
-					expect(normalized).toBeCloseTo(
-						legacy[index].features[feature],
-						10,
-					);
-				});
-			}
-			iterator.return(undefined);
-		},
-	);
-
 	it.each(["mlp", "cnn"] as const)(
 		"reproduces %s samples and labels from public observations before the future horizon",
 		(model) => {

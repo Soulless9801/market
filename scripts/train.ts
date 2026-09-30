@@ -1,3 +1,6 @@
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { parseArgs } from "node:util";
 // src/ml/train.ts
 
 import type { AgentSide, LearningRateScheduler, Model, Optimizer, TrainingExample } from "@/simulation";
@@ -304,8 +307,9 @@ function createSideModel(model: string, inp: number): Model {
     return ModelManager.build(model, config, new SeededRandom(seed))!;
 }
 
-function createPreset(modelStr: string): ModelPreset {
-	const dataset = JSON.parse(JSON.stringify(DataLoader.getData(modelStr)));
+function createPreset(modelStr: string, datasetName = modelStr): ModelPreset {
+	const dataset = JSON.parse(JSON.stringify(DataLoader.getData(datasetName)));
+    if (dataset.length === 0) throw new Error(`Cannot train on empty dataset: ${datasetName}`);
     const inp = dataset[0].features.length;
     const model = createSideModel(modelStr, inp);
     const options = createTrainingOptions();
@@ -322,34 +326,55 @@ function createPreset(modelStr: string): ModelPreset {
 import { writeFile } from 'fs/promises';
 
 async function writeToFile(data: string, filePath: string): Promise<void> {
-    try {
-        await writeFile(filePath, data, 'utf-8');
-        // console.log('File written successfully.');
-    } catch (error) {
-        console.error('Error writing file:', error);
-    }
+    await writeFile(filePath, data, 'utf-8');
 }
 
-export async function main() {
+export async function main(args = process.argv.slice(2)) {
+	const { values, positionals } = parseArgs({
+		args,
+		allowPositionals: true,
+		options: {
+			dataset: { type: "string" },
+			help: { type: "boolean", short: "h" },
+		},
+	});
+	if (values.help) {
+		console.log(
+			`Usage: npm run train -- <model> [--dataset <legacy-dataset>]\nModels: ${ModelManager.names().join(", ")}\nDatasets: ${DataLoader.names().join(", ")}`,
+		);
+		return;
+	}
+	if (positionals.length !== 1)
+		throw new Error(
+			"Specify one registered model. Use --help for options.",
+		);
+	const modelStr = positionals[0];
+	const preset = createPreset(modelStr, values.dataset ?? modelStr);
 
-	const args = process.argv.slice(2);
+	// console.log(preset);
 
-	const modelStr = args[0];
+	const { trainResult, testResult } = train_test(
+		preset.model,
+		ACTIONS,
+		preset.dataset,
+		preset.options,
+		preset.testP,
+	);
 
-    const preset = createPreset(modelStr);
+	console.log("Side Model Train Accuracy:", trainResult.accuracy);
+	console.log("Side Model Test Accuracy:", testResult.accuracy);
 
-    // console.log(preset);
-
-    const { trainResult, testResult } = train_test(preset.model, ACTIONS, preset.dataset, preset.options, preset.testP);
-
-    console.log("Side Model Train Accuracy:", trainResult.accuracy);
-    console.log("Side Model Test Accuracy:", testResult.accuracy);
-
-    await writeToFile(preset.model.toJSON(), `./models/side_model_${modelStr}.json`);
+	await writeToFile(
+		preset.model.toJSON(),
+		`./models/side_model_${modelStr}.json`,
+	);
 }
 
-main().catch((error) => {
-    console.error('Error in main:', error);
-    process.exit(1);
-});
-
+if (
+	process.argv[1] &&
+	resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+)
+	main().catch((error) => {
+		console.error("Error in main:", error);
+		process.exit(1);
+	});
