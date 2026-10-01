@@ -2,13 +2,9 @@ import type { CSSProperties } from "react";
 import { useSimulationController } from "./useSimulationController";
 import "./MarketMonitor.css";
 import { CandlestickChart } from "./CandlestickChart";
-
-function formatPrice(value: number | null): string {
-	if (value === null) {
-		return "—";
-	}
-	return "$" + value.toFixed(2);
-}
+import { OrderBook } from "./OrderBook";
+import { TradeTape } from "./TradeTape";
+import { formatPrice, formatQuantity } from "./format";
 
 function formatCash(value: number): string {
 	if (value === null) {
@@ -18,10 +14,6 @@ function formatCash(value: number): string {
 		return "-$" + Math.abs(value).toFixed(2);
 	}
 	return "$" + value.toFixed(2);
-}
-
-function formatQuantity(value: number): string {
-	return value.toLocaleString();
 }
 
 function MarketMonitor() {
@@ -40,7 +32,7 @@ function MarketMonitor() {
 	} = useSimulationController();
 
 	return (
-		<div className="market-monitor" style={{ minHeight: "100vh", background: "var(--market-background)", color: "var(--market-text)", padding: "24px", fontFamily: "Inter, system-ui, sans-serif" }}>
+		<div className="market-monitor" style={{ minHeight: "100vh", background: "var(--market-background)", color: "var(--market-text)", fontFamily: "Inter, system-ui, sans-serif" }}>
 			<div style={{ maxWidth: "1400px", margin: "0 auto", display: "grid", gap: "16px" }}>
 				<header className="market-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: "20px", borderBottom: "1px solid var(--market-border)" }}>
 					<div>
@@ -79,44 +71,7 @@ function MarketMonitor() {
 
 				<section className="market-grid">
 					<div style={panelStyle}>
-						<div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-							<div>
-								<div style={{ fontSize: "12px", letterSpacing: "0.16em", color: "var(--market-muted)", textTransform: "uppercase" }}>Order book</div>
-								<div style={{ fontSize: "14px", color: "var(--market-text)" }}>Simulation Time {viewModel.clock}</div>
-							</div>
-							<div style={{ textAlign: "right" }}>
-								<div style={{ fontSize: "12px", color: "var(--market-muted)" }}>Best Bid</div>
-								<div style={{ fontSize: "18px", fontWeight: 600 }}>{formatPrice(viewModel.bids[0]?.price ?? null)}</div>
-								<div style={{ fontSize: "12px", color: "var(--market-muted)" }}>Best Ask</div>
-								<div style={{ fontSize: "18px", fontWeight: 600 }}>{formatPrice(viewModel.asks[0]?.price ?? null)}</div>
-							</div>
-						</div>
-						<div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-							<div>
-								<div style={{ fontSize: "12px", letterSpacing: "0.16em", color: "var(--market-ask)", textTransform: "uppercase", marginBottom: "8px" }}>ASK</div>
-								{viewModel.asks.map((row) => (
-									<div key={`${row.side}-${row.price}`} style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
-										<div style={{ width: "70px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{formatPrice(row.price)}</div>
-										<div style={{ flex: 1, height: "10px", background: "var(--market-track)", borderRadius: 0, overflow: "hidden" }}>
-											<div style={{ width: `${row.barWidth}%`, height: "100%", background: "var(--market-ask)", borderRadius: 0 }} />
-										</div>
-										<div style={{ width: "70px", fontVariantNumeric: "tabular-nums", color: "var(--market-muted)" }}>{formatQuantity(row.quantity)}</div>
-									</div>
-								))}
-							</div>
-							<div>
-								<div style={{ fontSize: "12px", letterSpacing: "0.16em", color: "var(--market-bid)", textTransform: "uppercase", marginBottom: "8px" }}>BID</div>
-								{viewModel.bids.map((row) => (
-									<div key={`${row.side}-${row.price}`} style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
-										<div style={{ width: "70px", fontVariantNumeric: "tabular-nums" }}>{formatPrice(row.price)}</div>
-										<div style={{ flex: 1, height: "10px", background: "var(--market-track)", borderRadius: 0, overflow: "hidden" }}>
-											<div style={{ width: `${row.barWidth}%`, height: "100%", background: "var(--market-bid)", borderRadius: 0 }} />
-										</div>
-										<div style={{ width: "70px", fontVariantNumeric: "tabular-nums", color: "var(--market-muted)" }}>{formatQuantity(row.quantity)}</div>
-									</div>
-								))}
-							</div>
-						</div>
+						<OrderBook asks={viewModel.asks} bids={viewModel.bids} clock={viewModel.clock} />
 					</div>
 
 					<div style={{ display: "grid", gap: "16px" }}>
@@ -165,15 +120,7 @@ function MarketMonitor() {
 				</section>
 
 				<section style={panelStyle}>
-					<div style={{ fontSize: "12px", letterSpacing: "0.16em", color: "var(--market-muted)", textTransform: "uppercase", marginBottom: "12px" }}>Trade tape</div>
-					<div style={{ display: "grid", gap: "8px" }}>
-						{viewModel.trades.map((trade) => (
-							<div key={trade.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 10px", background: "var(--market-surface)", borderRadius: 0, fontFamily: "ui-monospace, SFMono-Regular, monospace" }}>
-								<div>{trade.timestamp} {trade.side} {trade.quantity} @ {formatPrice(trade.price)}</div>
-								<div style={{ color: "var(--market-muted)" }}>{trade.side}</div>
-							</div>
-						))}
-					</div>
+					<TradeTape trades={viewModel.trades} />
 				</section>
 			</div>
 		</div>

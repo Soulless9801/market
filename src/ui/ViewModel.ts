@@ -6,6 +6,10 @@ import {
 	calculateRecentOrderImbalance,
 } from "@/engine";
 
+// The view and its reserved layout space use the same bounded snapshot sizes.
+export const BOOK_DEPTH = 10;
+export const TRADE_TAPE_LIMIT = 12;
+
 export interface BookRow {
 	side: "BID" | "ASK";
 	price: number;
@@ -46,7 +50,7 @@ export interface ParticipantSnapshot {
 	pnl: number;
 }
 
-export function buildTradeTape(trades: LimitedTradeEvent[], limit = 12): TradeTapeEntry[] {
+export function buildTradeTape(trades: LimitedTradeEvent[], limit = TRADE_TAPE_LIMIT): TradeTapeEntry[] {
 	return trades.slice(-limit).reverse().map((trade) => ({
 		id: trade.tradeId,
 		timestamp: trade.timestamp,

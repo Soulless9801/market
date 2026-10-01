@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { calculateMidPrice } from "@/engine";
 import { buildAgents, Simulator } from "@/simulation";
 import { loadLocalModel } from "@/runtime/browser/localModel";
-import { buildMarketViewModel } from "./ViewModel";
+import { BOOK_DEPTH, buildMarketViewModel } from "./ViewModel";
 import { CHART_HISTORY_LIMIT } from "./candles";
 
 const DEFAULT_SEED = 15;
@@ -16,7 +16,7 @@ function createSimulator(seed: number, binding?: Awaited<ReturnType<typeof loadL
 }
 
 function buildViewModel(simulator: Simulator) {
-	const snapshot = simulator.getOrderBookSnapshot();
+	const snapshot = simulator.getOrderBookSnapshot(BOOK_DEPTH);
 	return buildMarketViewModel(
 		snapshot, simulator.getStatistics(), simulator.getTradeHistory(),
 		simulator.getParticpantPortfolios(), simulator.getClock(),

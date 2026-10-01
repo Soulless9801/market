@@ -16,6 +16,7 @@ body {
 	--market-track: #292929;
 	color-scheme: dark;
 	box-sizing: border-box;
+	padding: 24px;
 	font-variant-numeric: tabular-nums;
 	scrollbar-color: #555555 #191919;
 }
@@ -100,8 +101,199 @@ select.market-control {
 	font: 11px/1.6 ui-monospace, SFMono-Regular, monospace;
 }
 
-@media (max-width: 760px) {
+.market-panel-heading {
+	margin: 0 0 12px;
+	color: var(--market-muted);
+	font-size: 12px;
+	font-weight: 400;
+	letter-spacing: 0.16em;
+	text-transform: uppercase;
+}
+
+.order-book {
+	/* Respond to the panel width, including the narrower desktop grid column. */
+	container-type: inline-size;
+}
+
+.order-book-heading,
+.order-book-side-heading {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 12px;
+	margin-bottom: 12px;
+}
+
+.order-book-heading .market-panel-heading {
+	margin-bottom: 6px;
+}
+
+.order-book-clock {
+	font-size: 13px;
+}
+
+.order-book-quotes {
+	display: flex;
+	gap: 16px;
+	margin: 0;
+	text-align: right;
+	white-space: nowrap;
+}
+
+.order-book-quotes dt {
+	color: var(--market-muted);
+	font-size: 12px;
+}
+
+.order-book-quotes dd {
+	margin: 4px 0 0;
+	font-size: 18px;
+	font-weight: 600;
+}
+
+.order-book-sides {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 16px;
+}
+
+.order-book-side--ask { --book-color: var(--market-ask); }
+.order-book-side--bid { --book-color: var(--market-bid); }
+
+.order-book-side-heading {
+	margin-bottom: 8px;
+	font-size: 11px;
+	color: var(--market-muted);
+}
+
+.order-book-side-heading h3 {
+	margin: 0;
+	font-size: 12px;
+	font-weight: 500;
+	letter-spacing: 0.16em;
+	color: var(--book-color);
+}
+
+.order-book-levels {
+	--book-row-height: 24px;
+	display: grid;
+	grid-auto-rows: var(--book-row-height);
+	align-content: start;
+	gap: 4px;
+	min-height: calc(var(--book-level-count) * (var(--book-row-height) + 4px) - 4px);
+}
+
+.order-book-row {
+	display: grid;
+	grid-template-columns: max-content minmax(0, 1fr) max-content;
+	align-items: center;
+	gap: 8px;
+	font-size: 13px;
+}
+
+.order-book-price { grid-column: 1; grid-row: 1; }
+.order-book-quantity { grid-column: 3; grid-row: 1; text-align: right; color: var(--market-muted); }
+
+.order-book-track {
+	grid-column: 2;
+	grid-row: 1;
+	height: 8px;
+	background: var(--market-track);
+	overflow: hidden;
+}
+
+.order-book-fill {
+	height: 100%;
+	background: var(--book-color);
+}
+
+.order-book-empty,
+.trade-tape-empty {
+	color: var(--market-muted);
+	font-size: 13px;
+}
+
+.trade-tape {
+	position: relative;
+	/* New trades prepend keyed rows. They must not pull the document's scroll anchor. */
+	overflow-anchor: none;
+}
+
+.trade-tape-columns {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) 4ch minmax(0, 1fr) minmax(8ch, 1fr);
+	align-items: center;
+	gap: 8px;
+	padding: 8px 10px;
+	font: 13px/20px ui-monospace, SFMono-Regular, monospace;
+}
+
+.trade-tape-columns > span {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.trade-tape-columns > span:nth-child(n + 3) {
+	text-align: right;
+}
+
+.trade-tape-heading {
+	color: var(--market-muted);
+	font-size: 11px;
+}
+
+.trade-tape-entries {
+	display: grid;
+	grid-auto-rows: 36px;
+	align-content: start;
+	gap: 8px;
+	min-height: calc(var(--trade-tape-limit) * 44px - 8px);
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.trade-tape-row {
+	background: var(--market-surface);
+}
+
+.trade-tape-empty {
+	position: absolute;
+	top: 64px;
+	margin: 0;
+}
+
+@container (max-width: 620px) {
+	.order-book-levels { --book-row-height: 36px; }
+	.order-book-row {
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+		grid-template-rows: 20px 8px;
+		gap: 4px 8px;
+	}
+	.order-book-quantity { grid-column: 2; }
+	.order-book-track { grid-column: 1 / -1; grid-row: 2; }
+}
+
+@container (max-width: 420px) {
+	.order-book-sides { grid-template-columns: minmax(0, 1fr); }
+	.order-book-heading { flex-direction: column; align-items: stretch; }
+	.order-book-quotes { justify-content: space-between; text-align: left; }
+	.order-book-side + .order-book-side {
+		border-top: 1px solid var(--market-border);
+		padding-top: 16px;
+	}
+}
+
+@media (max-width: 960px) {
 	.market-grid {
 		grid-template-columns: minmax(0, 1fr);
 	}
+}
+
+@media (max-width: 480px) {
+	.market-monitor { padding: 12px; }
+	.trade-tape-columns { gap: 6px; padding-inline: 8px; font-size: 12px; }
+	.trade-tape-heading { font-size: 10px; }
 }

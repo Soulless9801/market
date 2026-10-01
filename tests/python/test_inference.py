@@ -72,7 +72,7 @@ def test_distinct_architectures_coexist_in_one_registry(checkpoint, exports, tmp
     registry = CheckpointRegistry({alias: path for alias, path, _layout in deployments})
     for alias, path, layout in deployments:
         dataset = MarketDataset(exports / layout)
-        inputs, _ = dataset[0]
+        inputs, _ = next(iter(dataset))
         predictor, _ = load_checkpoint(path)
         with torch.inference_mode():
             expected = predictor(inputs.unsqueeze(0))[0].tolist()
