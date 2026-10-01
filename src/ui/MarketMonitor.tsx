@@ -1,7 +1,7 @@
-import { useMemo } from "react";
-import type { CSSProperties, ReactElement } from "react";
+import type { CSSProperties } from "react";
 import { useSimulationController } from "./useSimulationController";
 import "./MarketMonitor.css";
+import { CandlestickChart } from "./CandlestickChart";
 
 function formatPrice(value: number | null): string {
 	if (value === null) {
@@ -24,11 +24,6 @@ function formatQuantity(value: number): string {
 	return value.toLocaleString();
 }
 
-const leftPadding = 70;
-const rightPadding = 20;
-const topPadding = 20;
-const bottomPadding = 50;
-
 function MarketMonitor() {
 	const {
 		viewModel,
@@ -43,17 +38,6 @@ function MarketMonitor() {
 		error,
 		isReady,
 	} = useSimulationController();
-
-	const maxHistory = useMemo(() => Math.max(...viewModel.midPriceSeries), [viewModel.midPriceSeries]);
-	const minHistory = useMemo(() => Math.min(...viewModel.midPriceSeries), [viewModel.midPriceSeries]);
-
-
-	// midprice display dimensions
-	const width = 600;
-	const height = 250;
-
-	const innerWidth = width - leftPadding - rightPadding;
-	const innerHeight = height - topPadding - bottomPadding;
 
 	return (
 		<div className="market-monitor" style={{ minHeight: "100vh", background: "var(--market-background)", color: "var(--market-text)", padding: "24px", fontFamily: "Inter, system-ui, sans-serif" }}>
@@ -90,7 +74,7 @@ function MarketMonitor() {
 				</header>
 
 				<div className="market-status" role={error ? "alert" : "status"}>
-					{error ? `ML unavailable: ${error}. Check the inference server and checkpoint, then Reset.` : modelStatus}
+					{error ? `Local ML Unavailable` : modelStatus}
 				</div>
 
 				<section className="market-grid">
@@ -161,19 +145,7 @@ function MarketMonitor() {
 
 				<section className="market-grid">
 					<div style={panelStyle}>
-						<div style={{ fontSize: "12px", letterSpacing: "0.16em", color: "var(--market-muted)", textTransform: "uppercase", marginBottom: "12px" }}>Midprice</div>
-						<svg viewBox={`0 0 ${width} ${height}`} style={{ width: "100%", height: "280px" }}>
-							<rect x="0" y="0" width={width} height={height} fill="var(--market-surface)" rx="0" />
-							{renderChartGrid(width, height, viewModel.midPriceSeries, viewModel.clock, maxHistory, minHistory)}
-							<path
-								d={buildPath(viewModel.midPriceSeries, { width: innerWidth, height: innerHeight, maxValue: maxHistory, minValue: minHistory })}
-								fill="none"
-								stroke="var(--market-bid)"
-								strokeWidth="1.75"
-							/>
-							<text x={leftPadding + innerWidth / 2} y={height - 16} textAnchor="middle" fill="var(--market-muted)" fontSize="11">time</text>
-							<text x="16" y={topPadding + innerHeight / 2} textAnchor="middle" fill="var(--market-muted)" fontSize="11" transform={`rotate(-90 16 ${topPadding + innerHeight / 2})`}>Midprice</text>
-						</svg>
+						<CandlestickChart prices={viewModel.midPriceSeries} currentStep={viewModel.clock} />
 					</div>
 
 					<div style={panelStyle}>
@@ -215,60 +187,6 @@ function Metric({ label, value }: { label: string; value: string }) {
 			<span style={{ fontVariantNumeric: "tabular-nums", fontWeight: 600 }}>{value}</span>
 		</div>
 	);
-}
-
-function buildPath(series: number[], dimensions: { width: number; height: number; maxValue: number; minValue: number }) {
-	if (series.length === 0) {
-		return "";
-	}
-
-	const innerWidth = dimensions.width;
-	const innerHeight = dimensions.height;
-	const points = series.map((value, index) => {
-		const x = leftPadding + (index / Math.max(1, series.length - 1)) * innerWidth;
-		const normalized = (value - dimensions.minValue) / Math.max(0.01, dimensions.maxValue - dimensions.minValue);
-		const y = topPadding + innerHeight - normalized * innerHeight;
-		return `${x},${y}`;
-	});
-
-	return `M ${points.join(" L ")}`;
-}
-
-function renderChartGrid(width: number, height: number, series: number[], currentStep: number, maxValue: number, minValue: number) {
-	const ticks = 5;
-	const xTickCount = Math.min(6, Math.max(2, series.length));
-	const innerWidth = width - leftPadding - rightPadding;
-	const innerHeight = height - topPadding - bottomPadding;
-	const lines: ReactElement[] = [];
-
-	for (let index = 0; index < ticks; index += 1) {
-		const yRatio = index / (ticks - 1);
-		const x = leftPadding;
-		const y = topPadding + yRatio * innerHeight;
-		const value = minValue + (maxValue - minValue) * (1 - yRatio);
-		lines.push(
-			<g key={`y-${index}`}>
-				<line x1={x} x2={width - rightPadding} y1={y} y2={y} stroke="var(--market-border)" strokeWidth="1" />
-				<text x={leftPadding - 42} y={y + 4} fill="var(--market-muted)" fontSize="10">{value.toFixed(2)}</text>
-			</g>,
-		);
-	}
-
-	for (let index = 0; index < xTickCount; index += 1) {
-		const xRatio = index / Math.max(1, xTickCount - 1);
-		const sampleIndex = Math.round(xRatio * Math.max(0, series.length - 1));
-		const x = leftPadding + xRatio * innerWidth;
-		const y = height - bottomPadding;
-		const step = currentStep - Math.max(0, series.length - 1 - sampleIndex);
-		lines.push(
-			<g key={`x-${index}`}>
-				<line x1={x} x2={x} y1={topPadding} y2={y} stroke="var(--market-border)" strokeWidth="1" />
-				<text x={x} y={y + 16} textAnchor="middle" fill="var(--market-muted)" fontSize="10">{step}</text>
-			</g>,
-		);
-	}
-
-	return <>{lines}</>;
 }
 
 const panelStyle: CSSProperties = {

@@ -3,6 +3,7 @@ import { calculateMidPrice } from "@/engine";
 import { buildAgents, Simulator } from "@/simulation";
 import { loadLocalModel } from "@/runtime/browser/localModel";
 import { buildMarketViewModel } from "./ViewModel";
+import { CHART_HISTORY_LIMIT } from "./candles";
 
 const DEFAULT_SEED = 15;
 const REFERENCE_PRICE = 100;
@@ -14,12 +15,12 @@ function createSimulator(seed: number, binding?: Awaited<ReturnType<typeof loadL
 	});
 }
 
-function buildViewModel(simulator: Simulator, previousPrices: number[] = []) {
+function buildViewModel(simulator: Simulator) {
 	const snapshot = simulator.getOrderBookSnapshot();
 	return buildMarketViewModel(
 		snapshot, simulator.getStatistics(), simulator.getTradeHistory(),
 		simulator.getParticpantPortfolios(), simulator.getClock(),
-		[...previousPrices.slice(-39), calculateMidPrice(snapshot, REFERENCE_PRICE)],
+		[calculateMidPrice(snapshot, REFERENCE_PRICE)],
 	);
 }
 
@@ -80,7 +81,12 @@ export function useSimulationController() {
 			pendingRef.current = true;
 			void simulator.runStepAsync().then(() => {
 				if (simulatorRef.current !== simulator) return;
-				setViewModel(previous => buildViewModel(simulator, previous.midPriceSeries));
+				// Capture this completed step now; a queued React update must not sample a later step.
+				const next = buildViewModel(simulator);
+				setViewModel(previous => ({
+					...next,
+					midPriceSeries: [...previous.midPriceSeries.slice(-(CHART_HISTORY_LIMIT - 1)), next.midPriceSeries[0]],
+				}));
 			}).catch((cause: unknown) => {
 				if (simulatorRef.current !== simulator) return;
 				setError(cause instanceof Error ? cause.message : String(cause));

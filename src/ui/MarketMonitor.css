@@ -77,6 +77,29 @@ select.market-control {
 	color: var(--market-text);
 }
 
+.market-chart-heading {
+	display: flex;
+	justify-content: space-between;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-bottom: 12px;
+	color: var(--market-muted);
+	font-size: 12px;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+}
+
+.market-chart-legend {
+	font-size: 11px;
+	letter-spacing: 0;
+	text-transform: none;
+}
+
+.market-chart-readout {
+	color: var(--market-muted);
+	font: 11px/1.6 ui-monospace, SFMono-Regular, monospace;
+}
+
 @media (max-width: 760px) {
 	.market-grid {
 		grid-template-columns: minmax(0, 1fr);
