@@ -1,0 +1,15 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "functions": {
+    "api/inference.py": {
+      "maxDuration": 60,
+      "excludeFiles": "{.venv/**,node_modules/**,docs/**,tests/**,datasets/**,dist/**,src/**,scripts/**,models/checkpoints/**,.git/**}"
+    }
+  },
+  "rewrites": [
+    { "source": "/__market/inference/:operation", "destination": "/api/inference?operation=:operation" }
+  ]
+}

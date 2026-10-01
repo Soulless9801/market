@@ -14,7 +14,7 @@ class TrainingConfig:
     seed: int = 42
     learning_rate: float = 0.001
     batch_size: int = 64
-    epochs: int = 20
+    epochs: int = 100
     validation_split: float = 0.2
     validation_dataset: str | None = None
     weight_decay: float = 0.01

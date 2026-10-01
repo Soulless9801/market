@@ -42,18 +42,16 @@ export function useSimulationController() {
 		simulatorRef.current = null;
 		setIsReady(false);
 		setError(null);
-		setModelStatus("Loading local Python model…");
+		setModelStatus("Loading Python model…");
 		try {
 			if (!Number.isSafeInteger(nextSeed) || nextSeed < 0 || nextSeed > 0xffffffff)
 				throw new Error("Seed must be an integer between 0 and 4294967295");
-			const binding = import.meta.env.DEV ? await loadLocalModel() : undefined;
+			const binding = await loadLocalModel();
 			if (generation !== generationRef.current) return;
 			const simulator = createSimulator(nextSeed, binding);
 			simulatorRef.current = simulator;
 			setViewModel(buildViewModel(simulator));
-			setModelStatus(binding
-				? `Sandboxing · ${binding.alias}`
-				: "Baseline");
+			setModelStatus(`Sandboxing · ${binding.alias}`);
 			setIsReady(true);
 		} catch (cause) {
 			if (generation !== generationRef.current) return;

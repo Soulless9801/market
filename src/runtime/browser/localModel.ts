@@ -8,8 +8,12 @@ async function requestJson(path: string, body?: unknown): Promise<unknown> {
 		method: body === undefined ? "GET" : "POST",
 		headers: body === undefined ? undefined : { "Content-Type": "application/json" },
 		body: body === undefined ? undefined : JSON.stringify(body),
-		signal: AbortSignal.timeout(35_000),
+		// The first metadata request may cold-start Vercel's 60-second Python function.
+		signal: AbortSignal.timeout(path === "model" ? 65_000 : 35_000),
 	});
+	if (!response.headers.get("content-type")?.includes("application/json")) {
+		throw new Error("Python inference is not configured on this server");
+	}
 	const result = await response.json();
 	if (!response.ok) throw new Error(result.error ?? `Local inference failed (${response.status})`);
 	return result;

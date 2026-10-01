@@ -6,6 +6,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
 import torch
 
 from ml.data.dataset import MarketDataset
@@ -43,11 +44,12 @@ def test_typescript_client_uses_real_python_process(exports, tmp_path):
     assert "Python client integration passed" in result.stdout
 
 
-def test_local_marketview_uses_python_through_vite(exports, tmp_path):
+@pytest.mark.parametrize("mode", ["dev", "preview"])
+def test_local_marketview_uses_python_through_vite(exports, tmp_path, mode):
     checkpoint = tmp_path / "local-market.pt"
     train(exports / "mlp", checkpoint, TrainingConfig(epochs=1))
     result = subprocess.run(
-        ["node", "--import", "tsx", "tests/fixtures/local-market-smoke.ts"],
+        ["node", "--import", "tsx", "tests/fixtures/local-market-smoke.ts", mode],
         cwd=ROOT,
         env={
             **os.environ,

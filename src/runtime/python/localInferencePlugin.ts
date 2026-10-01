@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { Plugin } from "vite";
+import type { Plugin, PreviewServer, ViteDevServer } from "vite";
 import { LOCAL_INFERENCE_PATH } from "../local-inference";
 import { PythonInferenceClient, type PythonInferenceOptions } from "./PythonInferenceClient";
 
@@ -93,16 +93,19 @@ export function createLocalInferenceHandler(backend: InferenceBackend, modelAlia
 
 export function localInferencePlugin(options: LocalInferenceOptions): Plugin {
 	let backend: PythonInferenceClient | undefined;
+	const connect = (server: ViteDevServer | PreviewServer) => {
+		// Dev and built-app preview use the same transport and checkpoint contract.
+		// One lazily started Python process survives page reloads and simulation resets.
+		backend = new PythonInferenceClient(options.python);
+		const handler = createLocalInferenceHandler(backend, options.modelAlias);
+		server.middlewares.use((request, response, next) => { void handler(request, response, next); });
+		server.httpServer?.once("close", () => { void backend?.shutdown(); });
+	};
 	return {
 		name: "market-local-inference",
 		apply: "serve",
-		configureServer(server) {
-			// One lazily started Python process is shared across page reloads and resets.
-			backend = new PythonInferenceClient(options.python);
-			const handler = createLocalInferenceHandler(backend, options.modelAlias);
-			server.middlewares.use((request, response, next) => { void handler(request, response, next); });
-			server.httpServer?.once("close", () => { void backend?.shutdown(); });
-		},
+		configureServer: connect,
+		configurePreviewServer: connect,
 		async closeBundle() {
 			await backend?.shutdown();
 		},

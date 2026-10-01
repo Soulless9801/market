@@ -90,7 +90,7 @@ function MarketMonitor() {
 				</header>
 
 				<div className="market-status" role={error ? "alert" : "status"}>
-					{error ? `ML unavailable: ${error}. Check the development server and checkpoint, then Reset.` : modelStatus}
+					{error ? `ML unavailable: ${error}. Check the inference server and checkpoint, then Reset.` : modelStatus}
 				</div>
 
 				<section className="market-grid">

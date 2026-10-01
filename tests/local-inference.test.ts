@@ -70,6 +70,12 @@ describe("local development inference bridge", () => {
 });
 
 describe("browser model binding", () => {
+	it("explains missing inference on a static-only host", async () => {
+		vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("<html>app</html>", {
+			headers: { "content-type": "text/html" },
+		})));
+		await expect(loadLocalModel()).rejects.toThrow("not configured on this server");
+	});
 	it("validates checkpoint metadata and predicts through the local endpoint", async () => {
 		const fetchMock = vi.fn()
 			.mockResolvedValueOnce(Response.json({ alias: "third-deployment", metadata: metadata() }))

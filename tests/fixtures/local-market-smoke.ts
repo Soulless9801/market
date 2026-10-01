@@ -1,18 +1,29 @@
 import assert from "node:assert/strict";
-import { createServer } from "vite";
+import { build, createServer, preview } from "vite";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { loadLocalModel } from "@/runtime/browser/localModel";
 import { buildAgents, Simulator } from "@/simulation";
 import { buildMarketViewModel } from "@/ui/ViewModel";
 
 // Exercise the same Vite middleware and browser model adapter used by MarketView.
-const server = await createServer({ server: { host: "127.0.0.1", port: 0 } });
+const isPreview = process.argv[2] === "preview";
+const outDir = isPreview ? await mkdtemp(join(tmpdir(), "market-preview-")) : undefined;
+if (isPreview) await build({ build: { outDir } });
+const server = isPreview
+	? await preview({ build: { outDir }, preview: { host: "127.0.0.1", port: 0 } })
+	: await createServer({ server: { host: "127.0.0.1", port: 0 } });
 const originalFetch = globalThis.fetch;
 try {
-	await server.listen();
+	if ("listen" in server) await server.listen();
 	const address = server.httpServer!.address();
 	assert(address && typeof address !== "string");
 	const origin = `http://127.0.0.1:${address.port}`;
 	globalThis.fetch = (input, init) => originalFetch(new URL(String(input), origin), init);
+	const page = await fetch("/");
+	assert.equal(page.status, 200);
+	if (isPreview) assert.match(await page.text(), /\/assets\/index-.*\.js/);
 	const binding = await loadLocalModel();
 	assert.equal(binding.alias, process.env.MARKET_MODEL_ALIAS);
 	const simulator = new Simulator({ agents: buildAgents(15, 100, binding), referencePrice: 100 });
@@ -29,4 +40,5 @@ try {
 } finally {
 	globalThis.fetch = originalFetch;
 	await server.close();
+	if (outDir) await rm(outDir, { recursive: true, force: true });
 }
