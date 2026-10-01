@@ -1,6 +1,6 @@
 // Built-in layout metadata. New layouts register their own descriptor and builder.
-// The historical "cnn" layout is just an input contract; it does not enable a
-// Python CNN architecture. CNN training is still deferred, and an MLP can use it.
+// Layout IDs describe input contracts, independently of Python architectures.
+// Both registered MLP and CNN architectures can consume these flat vectors.
 const mlpNames = [
 	"log_midprice_over_reference",
 	"log_history_max_over_reference",

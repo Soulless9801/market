@@ -48,12 +48,20 @@ def test_mlp_uses_dataset_dimensions_and_small_architecture(exports, layout):
         configure_model("mlp", metadata, {"input_shape": [1]})
 
 
-def test_training_is_repeatable_and_checkpoint_predictions_match(exports, tmp_path):
-    config = TrainingConfig(epochs=3, batch_size=7, model_options={"hidden_sizes": [8, 4]})
-    first, payload = train(exports / "mlp", tmp_path / "first.pt", config)
-    second, repeated = train(exports / "mlp", tmp_path / "second.pt", config)
+@pytest.mark.parametrize(("architecture", "layout", "options"), [
+    ("mlp", "mlp", {"hidden_sizes": [8, 4]}),
+    ("cnn", "cnn", {"channels": [4, 8], "kernel_size": 5, "pool_size": 3, "dropout": 0.3}),
+])
+def test_training_is_repeatable_and_checkpoint_predictions_match(
+    exports, tmp_path, architecture, layout, options
+):
+    config = TrainingConfig(model=architecture, epochs=3, batch_size=7, model_options=options)
+    first, payload = train(exports / layout, tmp_path / "first.pt", config)
+    second, repeated = train(exports / layout, tmp_path / "second.pt", config)
     reloaded, saved = load_checkpoint(tmp_path / "first.pt")
-    values = torch.stack([x for x, _ in MarketDataset(exports / "mlp")])
+    values = torch.stack([x for x, _ in MarketDataset(exports / layout)])
+    assert saved["model_type"] == architecture
+    assert all(saved["model_config"][key] == value for key, value in options.items())
     assert payload["history"] == repeated["history"]
     assert (
         payload["best_epoch"]
@@ -70,7 +78,7 @@ def test_training_is_repeatable_and_checkpoint_predictions_match(exports, tmp_pa
     assert saved["metrics"]["validation"]["sample_count"] == saved["split"]["validation_samples"]
     original = (tmp_path / "first.pt").read_bytes()
     with pytest.raises(ValueError, match="already exists"):
-        train(exports / "mlp", tmp_path / "first.pt", config)
+        train(exports / layout, tmp_path / "first.pt", config)
     assert (tmp_path / "first.pt").read_bytes() == original
     broken = copy.deepcopy(payload)
     broken["checkpoint_version"] = 999
@@ -108,7 +116,8 @@ def test_future_model_registration_uses_same_training_and_checkpoint_path(export
         build_model("test-linear", 3, payload["model_config"])
 
 
-def test_early_stopping_and_best_weights_restored(exports, tmp_path, monkeypatch):
+@pytest.mark.parametrize("architecture", ["mlp", "cnn"])
+def test_early_stopping_and_best_weights_restored(exports, tmp_path, monkeypatch, architecture):
     import ml.training.train as training
 
     original = training.evaluate
@@ -127,7 +136,8 @@ def test_early_stopping_and_best_weights_restored(exports, tmp_path, monkeypatch
 
     monkeypatch.setattr(training, "evaluate", controlled)
     model, payload = train(
-        exports / "mlp", tmp_path / "stopped.pt", TrainingConfig(epochs=10, patience=2)
+        exports / "mlp", tmp_path / "stopped.pt",
+        TrainingConfig(model=architecture, epochs=10, patience=2),
     )
     assert len(payload["history"]) == 3
     assert payload["best_epoch"] == 1

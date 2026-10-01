@@ -1,5 +1,6 @@
 """Built-in registrations. Add new architecture modules here, not in the trainer."""
 
+from . import cnn as cnn
 from . import mlp as mlp
 from .registry import (
     ModelDefinition,

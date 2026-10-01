@@ -11,12 +11,23 @@ import pytest
 from api.inference import DEFAULT_CHECKPOINT, handler
 from ml.inference.http import HostedInference
 from ml.inference.registry import CheckpointRegistry
+from ml.training.config import TrainingConfig
+from ml.training.train import train
+
+
+@pytest.fixture(scope="module", params=["deployment", "cnn"])
+def hosted_checkpoint(request, exports, tmp_path_factory):
+    if request.param == "deployment":
+        return DEFAULT_CHECKPOINT
+    path = tmp_path_factory.mktemp("hosted-cnn") / "checkpoint.pt"
+    train(exports / "cnn", path, TrainingConfig(model="cnn", epochs=1))
+    return path
 
 
 @pytest.fixture
-def server():
+def server(hosted_checkpoint):
     class TestHandler(handler):
-        backend = HostedInference(DEFAULT_CHECKPOINT, "third-hosted-deployment")
+        backend = HostedInference(hosted_checkpoint, "third-hosted-deployment")
 
         def log_message(self, *_args):
             pass
@@ -46,13 +57,13 @@ def request(server, method="GET", operation="model", body=None, headers=None, pa
         connection.close()
 
 
-def test_deployed_handler_matches_checkpoint_and_reuses_registry(server):
+def test_deployed_handler_matches_checkpoint_and_reuses_registry(server, hosted_checkpoint):
     status, descriptor, cache = request(server)
     assert status == 200
     assert cache == "no-store"
     assert descriptor["alias"] == "third-hosted-deployment"
     inputs = [0.0] * descriptor["metadata"]["inputShape"][0]
-    expected = CheckpointRegistry({"reference": DEFAULT_CHECKPOINT}).predict("reference", inputs)
+    expected = CheckpointRegistry({"reference": hosted_checkpoint}).predict("reference", inputs)
     registry = server[1].registry()
     with ThreadPoolExecutor(max_workers=3) as pool:
         responses = list(pool.map(

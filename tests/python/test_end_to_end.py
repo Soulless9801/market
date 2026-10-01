@@ -29,7 +29,10 @@ def run(command, *, env=None):
 
 
 @pytest.mark.skipif(os.name != "posix", reason="Real stop/kill failure test requires POSIX signals")
-def test_complete_mlp_workflow_is_reproducible_isolated_and_fails_closed(tmp_path):
+@pytest.mark.parametrize(("architecture", "layout"), [("mlp", "mlp"), ("cnn", "cnn")])
+def test_complete_workflow_is_reproducible_isolated_and_fails_closed(
+    tmp_path, architecture, layout
+):
     env = {**os.environ, "TSX_TSCONFIG_PATH": "tsconfig.scripts.json"}
     datasets = [tmp_path / name for name in ("export-a", "export-b")]
     for directory in datasets:
@@ -39,7 +42,7 @@ def test_complete_mlp_workflow_is_reproducible_isolated_and_fails_closed(tmp_pat
                 "--import",
                 "tsx",
                 "scripts/dataset.ts",
-                "mlp",
+                layout,
                 "--seed",
                 "42",
                 "--samples",
@@ -61,6 +64,8 @@ def test_complete_mlp_workflow_is_reproducible_isolated_and_fails_closed(tmp_pat
                 sys.executable,
                 "-m",
                 "ml.training.train",
+                "--model",
+                architecture,
                 "--dataset",
                 str(datasets[0]),
                 "--output",
@@ -135,7 +140,8 @@ def test_complete_mlp_workflow_is_reproducible_isolated_and_fails_closed(tmp_pat
                 "datasetRows": len(dataset),
                 "trainingRepeatEqual": True,
                 "checkpointPredictionsEqual": True,
-                "cnn": "deferred by user",
+                "architecture": architecture,
+                "featureLayout": layout,
             },
             indent=2,
         )

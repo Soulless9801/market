@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Plugin, PreviewServer, ViteDevServer } from "vite";
-import { LOCAL_INFERENCE_PATH } from "../local-inference";
-import { PythonInferenceClient, type PythonInferenceOptions } from "./PythonInferenceClient";
+import { LOCAL_INFERENCE_PATH } from "../local-inference.ts";
+import { PythonInferenceClient, type PythonInferenceOptions } from "./PythonInferenceClient.ts";
 
 interface InferenceBackend {
 	getMetadata(alias: string): Promise<unknown>;

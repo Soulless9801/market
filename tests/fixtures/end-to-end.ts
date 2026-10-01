@@ -110,7 +110,7 @@ try {
 			);
 		assert.ok(
 			trades.length > 0,
-			"Trained MLP must execute a real trade in this fixed regression scenario",
+			"Trained model must execute a real trade in this fixed regression scenario",
 		);
 		mlTrades += trades.length;
 		replays.push({

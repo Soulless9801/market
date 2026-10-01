@@ -67,7 +67,7 @@ class CheckpointRegistry:
             raise ValueError(f"Unknown model: {alias}")
         predictor, payload = self._models[alias]
         metadata = payload["metadata"]
-        # Dataset contract v1 is flat, including layouts consumed by future CNNs.
+        # Dataset contract v1 is flat; architecture-specific reshaping stays in the model.
         width = metadata["inputShape"][0]
         require(isinstance(inputs, list) and len(inputs) == width, f"Expected {width} input values")
         require(all(type(value) in (int, float) for value in inputs), "Input must contain numbers")

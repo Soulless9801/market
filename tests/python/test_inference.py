@@ -62,6 +62,25 @@ def test_repeated_predictions_match_checkpoint_and_load_once(
     assert calls == [checkpoint.resolve()]
 
 
+def test_distinct_architectures_coexist_in_one_registry(checkpoint, exports, tmp_path):
+    temporal_path = tmp_path / "temporal.pt"
+    train(exports / "cnn", temporal_path, TrainingConfig(model="cnn", epochs=1))
+    deployments = [
+        ("baseline-deployment", checkpoint, "mlp"),
+        ("temporal-deployment", temporal_path, "cnn"),
+    ]
+    registry = CheckpointRegistry({alias: path for alias, path, _layout in deployments})
+    for alias, path, layout in deployments:
+        dataset = MarketDataset(exports / layout)
+        inputs, _ = dataset[0]
+        predictor, _ = load_checkpoint(path)
+        with torch.inference_mode():
+            expected = predictor(inputs.unsqueeze(0))[0].tolist()
+        assert registry.describe_models()[alias]["inputShape"] == dataset.metadata["inputShape"]
+        for _ in range(3):
+            assert registry.predict(alias, inputs.tolist()) == expected
+
+
 @pytest.mark.parametrize(
     "line",
     [

@@ -16,10 +16,11 @@ from ml.training.train import train
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def test_typescript_client_uses_real_python_process(exports, tmp_path):
+@pytest.mark.parametrize(("architecture", "layout"), [("mlp", "mlp"), ("cnn", "cnn")])
+def test_typescript_client_uses_real_python_process(exports, tmp_path, architecture, layout):
     checkpoint = tmp_path / "checkpoint with spaces.pt"
-    model, _ = train(exports / "mlp", checkpoint, TrainingConfig(epochs=1))
-    inputs, _ = next(iter(MarketDataset(exports / "mlp")))
+    model, _ = train(exports / layout, checkpoint, TrainingConfig(model=architecture, epochs=1))
+    inputs, _ = next(iter(MarketDataset(exports / layout)))
     with torch.inference_mode():
         expected = model(inputs.unsqueeze(0))[0].tolist()
     fixture = tmp_path / "prediction.json"
@@ -45,9 +46,10 @@ def test_typescript_client_uses_real_python_process(exports, tmp_path):
 
 
 @pytest.mark.parametrize("mode", ["dev", "preview"])
-def test_local_marketview_uses_python_through_vite(exports, tmp_path, mode):
+@pytest.mark.parametrize(("architecture", "layout"), [("mlp", "mlp"), ("cnn", "cnn")])
+def test_local_marketview_uses_python_through_vite(exports, tmp_path, mode, architecture, layout):
     checkpoint = tmp_path / "local-market.pt"
-    train(exports / "mlp", checkpoint, TrainingConfig(epochs=1))
+    train(exports / layout, checkpoint, TrainingConfig(model=architecture, epochs=1))
     result = subprocess.run(
         ["node", "--import", "tsx", "tests/fixtures/local-market-smoke.ts", mode],
         cwd=ROOT,

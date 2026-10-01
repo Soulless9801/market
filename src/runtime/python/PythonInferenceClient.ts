@@ -5,7 +5,7 @@ import {
 	MAX_MESSAGE_BYTES,
 	parseResponse,
 	validateModelAlias,
-} from "./protocol";
+} from "./protocol.ts";
 
 export interface PythonInferenceOptions {
 	pythonExecutable?: string;
