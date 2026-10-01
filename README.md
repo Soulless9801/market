@@ -2,25 +2,6 @@
 
 An average simulator.
 
-## Code Layout
-
-```text
-src/
-├── engine/
-│   ├── exchange/
-│   ├── matching/
-│   ├── orderbook/
-│   └── orders/
-├── simulation/
-│   ├── agents/
-│   ├── events/
-│   ├── portfolio/
-│   └── simulator/
-├── analytics/
-├── ui/
-└── tests/
-```
-
 ## Development
 
 ```bash
@@ -29,19 +10,25 @@ npm run test
 npm run build
 ```
 
-## Dataset export
+## Dataset
 
 ```bash
 npm run dataset -- mlp
 npm run dataset -- cnn
+npm run dataset -- <model>
 ```
 
-## Python Training
+## Python
 
+Setup
 ```bash
 uv sync --locked
-uv run python -m ml.training.train --dataset datasets/training/mlp --output models/checkpoints/baseline.pt
 uv run pytest -q
+```
+
+Training
+```bash
+uv run python -m ml.training.train --dataset datasets/training/mlp --output models/checkpoints/baseline.pt
 ```
 
 ## Features
@@ -53,10 +40,6 @@ Agents interact with the market through a shared observable market context. This
 ## Goals
 
 The long-term goal is to use the simulator as an testing environment for increasingly sophisticated trading agents. In particular, the project will eventually incorporate deep learning-based agents, with performance evaluated against the other simulated participants.
-
-The [Phase 0 ML migration audit](docs/ml-migration-phase-0.md) documents the current
-data, training and inference flows, the proposed TypeScript/Python boundary, and
-decisions required before implementation of later phases.
 
 ## Deployment
 

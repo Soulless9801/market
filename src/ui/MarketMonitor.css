@@ -113,6 +113,9 @@ select.market-control {
 .order-book {
 	/* Respond to the panel width, including the narrower desktop grid column. */
 	container-type: inline-size;
+	/* Price-keyed levels move as quotes change. When the viewport starts inside
+	   the book, following one of those rows would move the page on each update. */
+	overflow-anchor: none;
 }
 
 .order-book-heading,
