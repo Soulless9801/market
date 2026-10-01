@@ -27,8 +27,17 @@ class CNN(nn.Module):
         )
         for width in channels:
             integer(width, "channel width", 1)
-        kernel_size = integer(config["kernel_size"], "kernel_size", 1)
-        require(kernel_size % 2 == 1, "kernel_size must be odd to preserve sequence length")
+        require(
+            isinstance(config["kernel_size"], list) and len(config["kernel_size"]) > 0,
+            "kernel_size must be a nonempty list",
+        )
+        kernel_sizes = [integer(k, "kernel_size", 1) for k in config["kernel_size"]]
+        require(
+            len(kernel_sizes) == len(channels),
+            "Number of kernel sizes must match number of channels",
+        )
+        # kernel_size = integer(config["kernel_size"], "kernel_size", 1)
+        # require(kernel_size % 2 == 1, "kernel_size must be odd to preserve sequence length")
         pool_size = integer(config["pool_size"], "pool_size", 1, self.input_size)
         dropout = config["dropout"]
         require(
@@ -38,9 +47,9 @@ class CNN(nn.Module):
 
         layers = []
         previous = 1
-        for width in channels:
+        for i, width in enumerate(channels):
             layers.extend([
-                nn.Conv1d(previous, width, kernel_size, padding=kernel_size // 2),
+                nn.Conv1d(previous, width, kernel_sizes[i], padding=kernel_sizes[i] // 2),
                 nn.ReLU(),
             ])
             previous = width
@@ -72,11 +81,11 @@ def configure(metadata: dict, options: dict) -> dict:
     return {
         "input_shape": metadata["inputShape"],
         "num_classes": metadata["numClasses"],
-        "channels": options.get("channels", [8, 16]),
-        "kernel_size": options.get("kernel_size", 3),
+        "channels": options.get("channels", [8, 16, 32]),
+        "kernel_size": options.get("kernel_sizes", [7, 5, 3]),
         "pool_size": options.get("pool_size", min(4, metadata["inputShape"][0])),
         "dropout": options.get("dropout", 0.2),
     }
 
 
-register_model("cnn", ModelDefinition(version=1, configure=configure, create=CNN))
+register_model("cnn", ModelDefinition(version=2, configure=configure, create=CNN))
