@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "datasetType": "market-side-classification",
+  "inputShape": [
+    30
+  ],
+  "targetType": "classification",
+  "targetEncoding": "class-index",
+  "numClasses": 3,
+  "classNames": [
+    "BUY",
+    "SELL",
+    "HOLD"
+  ],
+  "features": {
+    "version": 1,
+    "kind": "cnn",
+    "names": [
+      "midprice_window_0",
+      "midprice_window_1",
+      "midprice_window_2",
+      "midprice_window_3",
+      "midprice_window_4",
+      "midprice_window_5",
+      "midprice_window_6",
+      "midprice_window_7",
+      "midprice_window_8",
+      "midprice_window_9",
+      "midprice_window_10",
+      "midprice_window_11",
+      "midprice_window_12",
+      "midprice_window_13",
+      "midprice_window_14",
+      "midprice_window_15",
+      "midprice_window_16",
+      "midprice_window_17",
+      "midprice_window_18",
+      "midprice_window_19",
+      "midprice_window_20",
+      "midprice_window_21",
+      "midprice_window_22",
+      "midprice_window_23",
+      "midprice_window_24",
+      "midprice_window_25",
+      "midprice_window_26",
+      "midprice_window_27",
+      "midprice_window_28",
+      "midprice_window_29"
+    ],
+    "normalization": "none",
+    "historyOrder": "oldest-to-newest",
+    "priceHistoryLimit": 20,
+    "tradeHistoryLimit": 20,
+    "bookDepth": 10,
+    "padding": "prepend-current-midprice-to-length-30",
+    "description": "30 price levels: up to 20 historical pre-order midprices, left-padded with the current midprice; padding is not additional historical data."
+  },
+  "label": {
+    "quantity": "future-midprice-minus-current-midprice",
+    "threshold": 0.01,
+    "thresholdUnit": "absolute-price",
+    "horizonSteps": 10,
+    "buy": "change > threshold",
+    "sell": "change < -threshold",
+    "hold": "-threshold <= change <= threshold"
+  },
+  "generation": {
+    "version": 1,
+    "model": "cnn",
+    "seed": 42,
+    "warmupSteps": 42,
+    "horizonSteps": 10,
+    "sampleCount": 10000,
+    "trajectoryCount": 20,
+    "samplesPerTrajectory": 500,
+    "actualTrajectoryCount": 20,
+    "trajectorySeedStride": 9973,
+    "seedArithmetic": "uint32",
+    "agentPopulation": "buildDefaultAgents-v1-no-ml-agent",
+    "referencePrice": 100,
+    "observationTiming": "after-completed-step-before-label-horizon",
+    "historyTiming": "one-pre-order-midprice-per-completed-step",
+    "rowOrder": "trajectory-index-then-observation-step"
+  },
+  "datasetFile": "dataset.jsonl",
+  "sampleCount": 10000,
+  "classCounts": {
+    "BUY": 4589,
+    "SELL": 4690,
+    "HOLD": 721
+  },
+  "sha256": "4b73a04022cfa84bf000aacbf59429498d7632cabf111ea82516c56a614332a3"
+}
