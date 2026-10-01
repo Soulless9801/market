@@ -9,6 +9,7 @@
         "module": "esnext",
         "moduleResolution": "bundler",
         "types": ["node"],
+		"rewriteRelativeImportExtensions": true,
         "noEmit": true
 	},
 	"include": ["scripts/**/*"],

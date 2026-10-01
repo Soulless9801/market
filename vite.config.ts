@@ -1,6 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import { localInferencePlugin } from "@/runtime/python/localInferencePlugin.ts";
+import { localInferencePlugin } from "./src/runtime/python/localInferencePlugin.ts";
 
 export default defineConfig({
     plugins: [react(), localInferencePlugin({
