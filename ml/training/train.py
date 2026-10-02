@@ -111,19 +111,16 @@ def train(
         train_metrics = evaluate(predictor, train_loader, num_classes, config.device)
         val_metrics = evaluate(predictor, validation_loader, num_classes, config.device)
         history.append({"epoch": epoch, "train": train_metrics, "validation": val_metrics})
+
+        # format number of digits in epoch to max digits of total epochs
+        epoch_digits = len(str(config.epochs))
+
+        # print inline
         print(
-            json.dumps(
-                {
-                    "epoch": epoch,
-                    "train_loss": train_metrics["loss"],
-                    "validation_loss": val_metrics["loss"],
-                    "validation_accuracy": val_metrics["accuracy"],
-                },
-                allow_nan=False,
-            )
+            f"epoch {epoch:0{epoch_digits}d}: train_loss={train_metrics['loss']:.4f} | train_acc={train_metrics['accuracy']:.4f} | val_loss={val_metrics['loss']:.4f} | val_acc={val_metrics['accuracy']:.4f}"
         )
-        # Checkpoint selection records every real improvement. Early stopping has
-        # its own min_delta threshold, so a tiny improvement can still be the best model.
+
+        # early stopping based on validation loss
         if val_metrics["loss"] < best_loss:
             best_loss = val_metrics["loss"]
             best_epoch = epoch
@@ -175,16 +172,16 @@ def train(
 def main(argv=None) -> None:
     defaults = TrainingConfig()
     parser = argparse.ArgumentParser(
-        description="Train a registered PyTorch model from a Phase 1 export"
+        description="train a market model"
     )
     parser.add_argument(
-        "--dataset", required=True, help="Directory containing metadata.json and dataset.jsonl"
+        "--dataset", required=True, help="directory containing metadata.json and dataset.jsonl"
     )
     parser.add_argument(
-        "--output", required=True, help="New checkpoint path, e.g. models/checkpoints/baseline.pt"
+        "--output", required=True, help="path to write a new checkpoint"
     )
     parser.add_argument("--model", choices=model_names(), default=defaults.model)
-    parser.add_argument("--model-options", default="{}", help="Architecture-specific JSON object")
+    parser.add_argument("--model-options", default="{}", help="json object of architecture-specific options")
     for flag in ("seed", "batch_size", "epochs", "patience", "num_workers", "num_threads"):
         parser.add_argument(
             "--" + flag.replace("_", "-"), type=int, default=getattr(defaults, flag)
@@ -203,18 +200,23 @@ def main(argv=None) -> None:
         options["model_options"] = parse_json(options["model_options"])
         _, payload = train(dataset, output, TrainingConfig(**options))
     except (ValueError, OSError, RuntimeError) as error:
-        parser.exit(1, f"Training failed: {error}\n")
+        parser.exit(1, f"Training Failed: {error}\n")
+
+    print("\nTRAINING COMPLETE")
+
+    # print inline
     print(
-        json.dumps(
-            {
-                "checkpoint": str(Path(output).resolve()),
-                "best_epoch": payload["best_epoch"],
-                "validation": payload["metrics"]["validation"],
-            },
-            allow_nan=False,
-        )
+        f"\nCheckpoint: {Path(output).resolve()}\nBest Epoch: {payload['best_epoch']}\nValidation Loss: {payload['metrics']['validation']['loss']:.4f}\nValidation Accuracy: {payload['metrics']['validation']['accuracy']:.4f}"
     )
 
+    # print confusion matrix inline
+    print(f"\nCONFUSION MATRIX\n\n{np.array(payload['metrics']['validation']['confusion_matrix'])}")
+    # print per class metrics inline
+    print(f"\nPER CLASS METRICS\n")
+    for i, class_metrics in enumerate(payload["metrics"]["validation"]["per_class"]):
+        print(
+            f"class {i}: support={class_metrics['support']} | precision={class_metrics['precision']:.4f} | recall={class_metrics['recall']:.4f} | f1={class_metrics['f1']:.4f}"
+        )
 
 if __name__ == "__main__":
     main()

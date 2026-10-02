@@ -4,14 +4,14 @@ import { localInferencePlugin } from "./src/runtime/python/localInferencePlugin.
 
 export default defineConfig({
     plugins: [react(), localInferencePlugin({
-		modelAlias: process.env.MARKET_MODEL_ALIAS ?? "mlp-v1",
+		modelAlias: process.env.MARKET_MODEL_ALIAS ?? "mlp-baseline",
 		python: {
 			pythonExecutable: process.env.MARKET_PYTHON ?? ".venv/bin/python",
 			checkpoints: {
-				[process.env.MARKET_MODEL_ALIAS ?? "mlp-v1"]:
+				[process.env.MARKET_MODEL_ALIAS ?? "mlp-baseline"]:
 					process.env.MARKET_CHECKPOINT ?? "models/checkpoints/mlp-baseline.pt",
-				["cnn-v2"]:
-					process.env.MARKET_CHECKPOINT ?? "models/checkpoints/cnn-baseline-v2.pt",
+				["cnn-baseline"]:
+					process.env.MARKET_CHECKPOINT ?? "models/checkpoints/cnn-baseline.pt",
 			},
 		},
 	})],
