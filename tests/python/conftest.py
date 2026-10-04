@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 @pytest.fixture(scope="session")
 def exports(tmp_path_factory):
     root = tmp_path_factory.mktemp("typescript-exports")
-    for layout in ("mlp", "cnn"):
+    for layout in ("mlp", "cnn", "orderbook"):
         subprocess.run(
             [
                 "node",

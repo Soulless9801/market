@@ -567,3 +567,83 @@ describe("Dataset CLI", () => {
 		await expect(main(["unknown"])).rejects.toThrow(/layout/);
 	});
 });
+
+describe("Order book feature layout", () => {
+	const context = (
+		recentMidPriceSeries: number[],
+		bids: { price: number; quantity: number }[],
+		asks: { price: number; quantity: number }[],
+	) => ({
+		clock: 50,
+		midPrice: 100,
+		referencePrice: 100,
+		spread: 1,
+		orderBook: {
+			bids: bids.map((level) => ({ ...level, orderCount: 1 })),
+			asks: asks.map((level) => ({ ...level, orderCount: 1 })),
+		},
+		recentTrades: [],
+		recentMidPriceSeries,
+		orderImbalance: {
+			bidVolume: 0,
+			askVolume: 0,
+			imbalance: 0,
+			bidPercent: 0,
+			askPercent: 0,
+		},
+	});
+
+	it("registers a fixed-width layout that needs no trade history", () => {
+		const definition = FeatureManager.describe("orderbook");
+		expect(definition.names).toHaveLength(80);
+		expect(definition).toMatchObject({
+			minimumWarmupSteps: 20,
+			priceHistoryLimit: 20,
+			tradeHistoryLimit: 0,
+			bookDepth: 10,
+		});
+		expect(createDatasetContract(options("orderbook")).inputShape).toEqual([80]);
+	});
+
+	it("encodes chronological returns, level offsets, quantities and cumulative depth", () => {
+		const prices = Array.from({ length: 20 }, (_, i) => 90 + i * 0.5);
+		const input = FeatureManager.create("orderbook").build(
+			context(prices, [{ price: 99.5, quantity: 3 }, { price: 99, quantity: 5 }], [{ price: 100.5, quantity: 7 }]),
+		);
+		expect(input).toHaveLength(80);
+		expect(input[0]).toBeCloseTo(Math.log(90.5 / 90));
+		expect(input[19]).toBeCloseTo(Math.log(100 / 99.5));
+		expect(input.slice(20, 26)).toEqual([
+			Math.log(99.5 / 100), Math.log1p(3), Math.log1p(3),
+			Math.log(99 / 100), Math.log1p(5), Math.log1p(8),
+		]);
+		// Missing levels have zero offset and quantity; cumulative depth carries forward.
+		expect(input.slice(26, 50)).toEqual(
+			Array.from({ length: 8 }, () => [0, 0, Math.log1p(8)]).flat(),
+		);
+		expect(input.slice(50, 56)).toEqual([
+			Math.log(100.5 / 100), Math.log1p(7), Math.log1p(7),
+			0, 0, Math.log1p(7),
+		]);
+		expect(input.every(Number.isFinite)).toBe(true);
+	});
+
+	it("left-pads short histories with zero returns instead of changing width", () => {
+		const input = FeatureManager.create("orderbook").build(context([99, 99.5], [], []));
+		expect(input).toHaveLength(80);
+		expect(input.slice(0, 18)).toEqual(Array(18).fill(0));
+		expect(input[18]).toBeCloseTo(Math.log(99.5 / 99));
+		expect(input[19]).toBeCloseTo(Math.log(100 / 99.5));
+	});
+
+	it("exports rows equal to the builder applied to the public observation", () => {
+		const settings = options("orderbook");
+		const rows = [...generateDataset(settings)];
+		expect(rows).toEqual([...generateDataset(settings)]);
+		const simulator = new Simulator({ agents: buildDefaultAgents(42) });
+		simulator.runSteps(42);
+		expect(rows[0].input).toEqual(
+			FeatureManager.create("orderbook").build(simulator.getObservableContext(0, 20, 10)),
+		);
+	});
+});

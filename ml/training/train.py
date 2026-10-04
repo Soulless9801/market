@@ -2,7 +2,6 @@
 
 import argparse
 import copy
-import json
 import platform
 from dataclasses import asdict
 from pathlib import Path
@@ -12,12 +11,12 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 
-from ml.data.dataset import MarketDataset, split_trajectories
+from ml.data.dataset import MarketDataset, ShuffleBuffer, split_trajectories
 from ml.data.preprocessing import Predictor, Standardizer
 from ml.data.schema import parse_json, require, trajectory_seed
 from ml.models import build_model, configure_model, definition_for, model_names
 from ml.training.checkpoint import CHECKPOINT_VERSION, save_checkpoint
-from ml.training.config import TrainingConfig
+from ml.training.config import OPTIMIZERS, SCHEDULERS, TrainingConfig
 from ml.training.evaluate import evaluate, validate_logits
 from ml.utils.reproducibility import seed_everything, seed_worker, seeded_generator
 
@@ -31,6 +30,31 @@ def make_loader(dataset, config: TrainingConfig) -> DataLoader:
         generator=seeded_generator(config.seed),
         multiprocessing_context="spawn" if config.num_workers else None,
     )
+
+
+def create_optimizer(parameters, config: TrainingConfig) -> torch.optim.Optimizer:
+    if config.optimizer == "sgd":
+        return torch.optim.SGD(
+            parameters,
+            lr=config.learning_rate,
+            momentum=0.9,
+            nesterov=True,
+            weight_decay=config.weight_decay,
+        )
+    return torch.optim.AdamW(
+        parameters, lr=config.learning_rate, weight_decay=config.weight_decay
+    )
+
+
+def create_scheduler(optimizer: torch.optim.Optimizer, config: TrainingConfig):
+    """Epoch-level schedules; early stopping may end training before a cosine cycle completes."""
+    if config.scheduler == "cosine":
+        return torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=config.epochs)
+    if config.scheduler == "plateau":
+        return torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer, factor=0.5, patience=max(1, config.patience // 2)
+        )
+    return None
 
 
 def validation_data(dataset: MarketDataset, config: TrainingConfig):
@@ -75,16 +99,23 @@ def train(
     dataset = MarketDataset(dataset_directory)
     training, validation = validation_data(dataset, config)
     train_loader, validation_loader = make_loader(training, config), make_loader(validation, config)
+    # Fitting and evaluation keep file order so their float sums stay deterministic;
+    # only optimizer steps draw from the optional shuffle buffer.
+    shuffled = (
+        ShuffleBuffer(training, config.shuffle_buffer, config.seed)
+        if config.shuffle_buffer
+        else None
+    )
+    step_loader = make_loader(shuffled, config) if shuffled else train_loader
     model_config = configure_model(config.model, dataset.metadata, config.model_options)
     backbone = build_model(config.model, definition.version, model_config)
     normalizer = Standardizer(dataset.metadata["inputShape"][0])
     # Validation statistics must not influence the transform learned from training.
     normalizer.fit(train_loader)
     predictor = Predictor(normalizer, backbone).to(config.device)
-    optimizer = torch.optim.AdamW(
-        predictor.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay
-    )
-    criterion = nn.CrossEntropyLoss()
+    optimizer = create_optimizer(predictor.parameters(), config)
+    scheduler = create_scheduler(optimizer, config)
+    criterion = nn.CrossEntropyLoss(label_smoothing=config.label_smoothing)
     num_classes = dataset.metadata["numClasses"]
     history = []
     best_loss = float("inf")
@@ -94,7 +125,9 @@ def train(
     stale_epochs = 0
     for epoch in range(1, config.epochs + 1):
         predictor.train()
-        for inputs, targets in train_loader:
+        if shuffled:
+            shuffled.set_epoch(epoch)
+        for inputs, targets in step_loader:
             inputs, targets = inputs.to(config.device), targets.to(config.device)
             optimizer.zero_grad(set_to_none=True)
             logits = predictor(inputs)
@@ -111,13 +144,21 @@ def train(
         train_metrics = evaluate(predictor, train_loader, num_classes, config.device)
         val_metrics = evaluate(predictor, validation_loader, num_classes, config.device)
         history.append({"epoch": epoch, "train": train_metrics, "validation": val_metrics})
+        if isinstance(scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
+            scheduler.step(val_metrics["loss"])
+        elif scheduler:
+            scheduler.step()
 
         # format number of digits in epoch to max digits of total epochs
         epoch_digits = len(str(config.epochs))
 
         # print inline
         print(
-            f"epoch {epoch:0{epoch_digits}d}: train_loss={train_metrics['loss']:.4f} | train_acc={train_metrics['accuracy']:.4f} | val_loss={val_metrics['loss']:.4f} | val_acc={val_metrics['accuracy']:.4f}"
+            f"epoch {epoch:0{epoch_digits}d}: "
+            f"train_loss={train_metrics['loss']:.4f} | "
+            f"train_acc={train_metrics['accuracy']:.4f} | "
+            f"val_loss={val_metrics['loss']:.4f} | "
+            f"val_acc={val_metrics['accuracy']:.4f}"
         )
 
         # early stopping based on validation loss
@@ -181,12 +222,16 @@ def main(argv=None) -> None:
         "--output", required=True, help="path to write a new checkpoint"
     )
     parser.add_argument("--model", choices=model_names(), default=defaults.model)
-    parser.add_argument("--model-options", default="{}", help="json object of architecture-specific options")
-    for flag in ("seed", "batch_size", "epochs", "patience", "num_workers", "num_threads"):
+    parser.add_argument(
+        "--model-options", default="{}", help="json object of architecture-specific options"
+    )
+    for flag in (
+        "seed", "batch_size", "epochs", "patience", "num_workers", "num_threads", "shuffle_buffer"
+    ):
         parser.add_argument(
             "--" + flag.replace("_", "-"), type=int, default=getattr(defaults, flag)
         )
-    for flag in ("learning_rate", "weight_decay", "min_delta"):
+    for flag in ("learning_rate", "weight_decay", "min_delta", "label_smoothing"):
         parser.add_argument(
             "--" + flag.replace("_", "-"), type=float, default=getattr(defaults, flag)
         )
@@ -194,6 +239,8 @@ def main(argv=None) -> None:
     group.add_argument("--validation-split", type=float, default=defaults.validation_split)
     group.add_argument("--validation-dataset")
     parser.add_argument("--device", choices=["cpu", "cuda"], default=defaults.device)
+    parser.add_argument("--optimizer", choices=OPTIMIZERS, default=defaults.optimizer)
+    parser.add_argument("--scheduler", choices=SCHEDULERS, default=defaults.scheduler)
     options = vars(parser.parse_args(argv))
     dataset, output = options.pop("dataset"), options.pop("output")
     try:
@@ -205,17 +252,24 @@ def main(argv=None) -> None:
     print("\nTRAINING COMPLETE")
 
     # print inline
+    validation = payload["metrics"]["validation"]
     print(
-        f"\nCheckpoint: {Path(output).resolve()}\nBest Epoch: {payload['best_epoch']}\nValidation Loss: {payload['metrics']['validation']['loss']:.4f}\nValidation Accuracy: {payload['metrics']['validation']['accuracy']:.4f}"
+        f"\nCheckpoint: {Path(output).resolve()}\n"
+        f"Best Epoch: {payload['best_epoch']}\n"
+        f"Validation Loss: {validation['loss']:.4f}\n"
+        f"Validation Accuracy: {validation['accuracy']:.4f}"
     )
 
     # print confusion matrix inline
-    print(f"\nCONFUSION MATRIX\n\n{np.array(payload['metrics']['validation']['confusion_matrix'])}")
+    print(f"\nCONFUSION MATRIX\n\n{np.array(validation['confusion_matrix'])}")
     # print per class metrics inline
-    print(f"\nPER CLASS METRICS\n")
-    for i, class_metrics in enumerate(payload["metrics"]["validation"]["per_class"]):
+    print("\nPER CLASS METRICS\n")
+    for i, class_metrics in enumerate(validation["per_class"]):
         print(
-            f"class {i}: support={class_metrics['support']} | precision={class_metrics['precision']:.4f} | recall={class_metrics['recall']:.4f} | f1={class_metrics['f1']:.4f}"
+            f"class {i}: support={class_metrics['support']} | "
+            f"precision={class_metrics['precision']:.4f} | "
+            f"recall={class_metrics['recall']:.4f} | "
+            f"f1={class_metrics['f1']:.4f}"
         )
 
 if __name__ == "__main__":

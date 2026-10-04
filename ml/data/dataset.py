@@ -110,3 +110,40 @@ def split_trajectories(dataset: MarketDataset, fraction: float, seed: int):
     random.Random(seed).shuffle(trajectories)
     count = max(1, min(len(trajectories) - 1, round(len(trajectories) * fraction)))
     return dataset.select(trajectories[count:]), dataset.select(trajectories[:count])
+
+
+class ShuffleBuffer(IterableDataset):
+    """Approximate streaming shuffle; rows are otherwise ordered trajectory by trajectory.
+
+    Memory stays bounded by buffer_size. Each epoch draws from a generator seeded by
+    (seed, epoch, worker), so repeated training runs see identical batch orders.
+    """
+
+    def __init__(self, source: IterableDataset, buffer_size: int, seed: int):
+        super().__init__()
+        require(buffer_size >= 1, "Shuffle buffer must hold at least one row")
+        self.source = source
+        self.buffer_size = buffer_size
+        self.seed = seed
+        self.epoch = 0
+
+    def set_epoch(self, epoch: int) -> None:
+        self.epoch = epoch
+
+    def __len__(self):
+        return len(self.source)
+
+    def __iter__(self):
+        worker = get_worker_info()
+        worker_id = worker.id if worker else 0
+        generator = random.Random(f"{self.seed}:{self.epoch}:{worker_id}")
+        buffer = []
+        for row in self.source:
+            if len(buffer) < self.buffer_size:
+                buffer.append(row)
+                continue
+            index = generator.randrange(self.buffer_size)
+            yield buffer[index]
+            buffer[index] = row
+        generator.shuffle(buffer)
+        yield from buffer

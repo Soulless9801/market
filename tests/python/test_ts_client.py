@@ -16,7 +16,9 @@ from ml.training.train import train
 ROOT = Path(__file__).resolve().parents[2]
 
 
-@pytest.mark.parametrize(("architecture", "layout"), [("mlp", "mlp"), ("cnn", "cnn")])
+@pytest.mark.parametrize(
+    ("architecture", "layout"), [("mlp", "mlp"), ("cnn", "cnn"), ("cnn", "orderbook")]
+)
 def test_typescript_client_uses_real_python_process(exports, tmp_path, architecture, layout):
     checkpoint = tmp_path / "checkpoint with spaces.pt"
     model, _ = train(exports / layout, checkpoint, TrainingConfig(model=architecture, epochs=1))

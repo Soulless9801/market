@@ -47,3 +47,30 @@ export const CNN_FEATURE_SCHEMA = {
 	description:
 		"30 price levels: up to 20 historical pre-order midprices, left-padded with the current midprice; padding is not additional historical data.",
 };
+const ORDERBOOK_RETURN_COUNT = 20;
+const ORDERBOOK_DEPTH = 10;
+const orderbookLevelNames = (side: "bid" | "ask") =>
+	Array.from({ length: ORDERBOOK_DEPTH }, (_, level) => [
+		`log_${side}_${level}_price_over_midprice`,
+		`log1p_${side}_${level}_quantity`,
+		`log1p_${side}_cumulative_quantity_${level}`,
+	]).flat();
+export const ORDERBOOK_FEATURE_SCHEMA = {
+	version: 1,
+	names: [
+		...Array.from(
+			{ length: ORDERBOOK_RETURN_COUNT },
+			(_, i) => `chronological_log_return_${i}`,
+		),
+		...orderbookLevelNames("bid"),
+		...orderbookLevelNames("ask"),
+	],
+	minimumWarmupSteps: ORDERBOOK_RETURN_COUNT,
+	priceHistoryLimit: ORDERBOOK_RETURN_COUNT,
+	tradeHistoryLimit: 0,
+	bookDepth: ORDERBOOK_DEPTH,
+	historyOrder: "oldest-to-newest",
+	padding: "left-pad-missing-returns-and-empty-levels-with-zero",
+	description:
+		"20 chronological log returns (last ends at current midprice), then for 10 bid levels and 10 ask levels: log(level price / midprice), log1p(level quantity) and log1p(cumulative quantity through that level). Empty levels are zero.",
+};

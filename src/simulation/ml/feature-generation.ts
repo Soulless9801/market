@@ -1,5 +1,9 @@
 import { NamedRegistry } from "@/simulation/registry";
-import { MLP_FEATURE_SCHEMA, CNN_FEATURE_SCHEMA } from "./feature-presets";
+import {
+	MLP_FEATURE_SCHEMA,
+	CNN_FEATURE_SCHEMA,
+	ORDERBOOK_FEATURE_SCHEMA,
+} from "./feature-presets";
 import type { ObservableSimulatorContext, ObservationRequirements } from '@/simulation/simulator';
 
 export interface FeatureBuilder {
@@ -123,6 +127,54 @@ export class CNNFeatureBuilder implements FeatureBuilder {
     }
 }
 
+/** Book shape around the midprice plus recent returns; moves are driven by top-of-book depletion. */
+export class OrderBookFeatureBuilder implements FeatureBuilder {
+
+    public readonly featureCount = ORDERBOOK_FEATURE_SCHEMA.names.length;
+    private readonly returnCount = ORDERBOOK_FEATURE_SCHEMA.priceHistoryLimit;
+    private readonly depth = ORDERBOOK_FEATURE_SCHEMA.bookDepth;
+
+    private logRatio(numerator: number, denominator: number): number {
+        const value = numerator > 0 && denominator > 0
+            ? Math.log(numerator / denominator)
+            : 0;
+        return Number.isFinite(value) ? value : 0;
+    }
+
+    //@override
+    build(context: ObservableSimulatorContext): number[] {
+        const prices = context.recentMidPriceSeries.slice(-this.returnCount);
+        const returns = prices.map((price, index) =>
+            this.logRatio(index === prices.length - 1 ? context.midPrice : prices[index + 1], price),
+        );
+        // Zero padding keeps the width fixed; trained data always has full history.
+        const paddedReturns = [
+            ...Array<number>(this.returnCount - returns.length).fill(0),
+            ...returns,
+        ];
+        const describeSide = (levels: ObservableSimulatorContext["orderBook"]["bids"]) => {
+            const features: number[] = [];
+            let cumulativeQuantity = 0;
+            for (let index = 0; index < this.depth; index++) {
+                const level = levels[index];
+                const quantity = level && Number.isFinite(level.quantity) ? Math.max(0, level.quantity) : 0;
+                cumulativeQuantity += quantity;
+                features.push(
+                    level ? this.logRatio(level.price, context.midPrice) : 0,
+                    Math.log1p(quantity),
+                    Math.log1p(cumulativeQuantity),
+                );
+            }
+            return features;
+        };
+        return [
+            ...paddedReturns,
+            ...describeSide(context.orderBook.bids),
+            ...describeSide(context.orderBook.asks),
+        ];
+    }
+}
+
 export interface FeatureDefinition extends ObservationRequirements {
 	create(): FeatureBuilder;
 	version: number;
@@ -226,4 +278,8 @@ FeatureManager.register("mlp", {
 FeatureManager.register("cnn", {
 	...CNN_FEATURE_SCHEMA,
 	create: () => new CNNFeatureBuilder(),
+});
+FeatureManager.register("orderbook", {
+	...ORDERBOOK_FEATURE_SCHEMA,
+	create: () => new OrderBookFeatureBuilder(),
 });

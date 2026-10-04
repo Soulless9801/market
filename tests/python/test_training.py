@@ -9,7 +9,7 @@ import pytest
 import torch
 from torch import nn
 
-from ml.data.dataset import MarketDataset
+from ml.data.dataset import MarketDataset, ShuffleBuffer
 from ml.models import ModelDefinition, build_model, configure_model, register_model
 from ml.training.checkpoint import load_checkpoint, save_checkpoint
 from ml.training.config import TrainingConfig
@@ -50,6 +50,8 @@ def test_mlp_uses_dataset_dimensions_and_small_architecture(exports, layout):
 @pytest.mark.parametrize(("architecture", "layout", "options"), [
     ("mlp", "mlp", {"hidden_sizes": [8, 4]}),
     ("cnn", "cnn", {"channels": [4, 8], "kernel_size": [5, 3], "pool_size": 3, "dropout": 0.3}),
+    ("mlp", "orderbook", {"hidden_sizes": [8, 4]}),
+    ("cnn", "orderbook", {"channels": [4], "kernel_size": [3], "pool_size": 8, "dropout": 0.1}),
 ])
 def test_training_is_repeatable_and_checkpoint_predictions_match(
     exports, tmp_path, architecture, layout, options
@@ -166,6 +168,11 @@ def test_checkpoint_failure_cleans_partial_files(tmp_path, monkeypatch):
         {"weight_decay": -1},
         {"model_options": []},
         {"device": "mps"},
+        {"optimizer": "adam"},
+        {"scheduler": "step"},
+        {"label_smoothing": 1},
+        {"label_smoothing": -0.1},
+        {"shuffle_buffer": -1},
     ],
 )
 def test_invalid_training_config_fails(overrides):
@@ -248,3 +255,37 @@ def test_atomic_checkpoint_never_overwrites_existing_file(tmp_path):
         save_checkpoint(path, {"example": 1})
     assert path.read_bytes() == b"original"
     assert list(tmp_path.iterdir()) == [path]
+
+
+def test_shuffle_buffer_permutes_rows_reproducibly_per_epoch():
+    rows = list(range(50))
+    shuffled = ShuffleBuffer(rows, buffer_size=8, seed=7)
+    first = list(shuffled)
+    assert sorted(first) == rows and first != rows
+    assert list(shuffled) == first
+    shuffled.set_epoch(1)
+    assert sorted(list(shuffled)) == rows and list(shuffled) != first
+    with pytest.raises(ValueError):
+        ShuffleBuffer(rows, buffer_size=0, seed=7)
+
+
+@pytest.mark.parametrize("scheduler", ["cosine", "plateau"])
+def test_optimization_options_train_repeatably_and_are_recorded(exports, tmp_path, scheduler):
+    config = TrainingConfig(
+        epochs=3,
+        batch_size=7,
+        optimizer="sgd",
+        scheduler=scheduler,
+        label_smoothing=0.1,
+        shuffle_buffer=16,
+    )
+    _, payload = train(exports / "mlp", tmp_path / "first.pt", config)
+    _, repeated = train(exports / "mlp", tmp_path / "second.pt", config)
+    default = TrainingConfig(epochs=3, batch_size=7)
+    _, baseline = train(exports / "mlp", tmp_path / "baseline.pt", default)
+    assert payload["history"] == repeated["history"]
+    assert payload["history"] != baseline["history"]
+    _, saved = load_checkpoint(tmp_path / "first.pt")
+    assert saved["training_config"]["optimizer"] == "sgd"
+    assert saved["training_config"]["scheduler"] == scheduler
+    assert saved["training_config"]["shuffle_buffer"] == 16

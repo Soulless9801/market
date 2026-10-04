@@ -5,6 +5,9 @@ from dataclasses import dataclass, field
 
 from ml.data.schema import integer, require
 
+OPTIMIZERS = ("adamw", "sgd")
+SCHEDULERS = ("none", "cosine", "plateau")
+
 
 @dataclass(frozen=True)
 class TrainingConfig:
@@ -24,14 +27,27 @@ class TrainingConfig:
     device: str = "cpu"
     num_workers: int = 0
     num_threads: int = 1
+    # Optimization options. Defaults reproduce the original AdamW, constant-rate,
+    # file-order training so earlier checkpoints remain reproducible.
+    optimizer: str = "adamw"
+    scheduler: str = "none"
+    label_smoothing: float = 0.0
+    shuffle_buffer: int = 0
 
     def validate(self):
         integer(self.seed, "seed", 0, 2**32 - 1)
         for name in ("batch_size", "epochs", "num_threads"):
             integer(getattr(self, name), name, 1)
         integer(self.num_workers, "num_workers", 0)
+        integer(self.shuffle_buffer, "shuffle_buffer", 0)
         integer(self.patience, "patience", 0)
-        for name in ("learning_rate", "weight_decay", "min_delta", "validation_split"):
+        for name in (
+            "learning_rate",
+            "weight_decay",
+            "min_delta",
+            "validation_split",
+            "label_smoothing",
+        ):
             value = getattr(self, name)
             require(type(value) in (int, float) and math.isfinite(value), f"Invalid {name}")
         require(
@@ -39,6 +55,9 @@ class TrainingConfig:
             "Learning rate must be positive; weight decay and min_delta must be non-negative",
         )
         require(0 < self.validation_split < 1, "validation_split must lie between zero and one")
+        require(0 <= self.label_smoothing < 1, "label_smoothing must lie in [0, 1)")
+        require(self.optimizer in OPTIMIZERS, f"optimizer must be one of {', '.join(OPTIMIZERS)}")
+        require(self.scheduler in SCHEDULERS, f"scheduler must be one of {', '.join(SCHEDULERS)}")
         require(isinstance(self.model, str) and bool(self.model), "Model ID is required")
         require(isinstance(self.model_options, dict), "model_options must be an object")
         require(
