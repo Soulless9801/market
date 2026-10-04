@@ -49,7 +49,9 @@ def test_typescript_client_uses_real_python_process(exports, tmp_path, architect
 @pytest.mark.parametrize(("architecture", "layout"), [("mlp", "mlp"), ("cnn", "cnn")])
 def test_local_marketview_uses_python_through_vite(exports, tmp_path, mode, architecture, layout):
     checkpoint = tmp_path / "local-market.pt"
-    train(exports / layout, checkpoint, TrainingConfig(model=architecture, epochs=1))
+    # A barely trained model can predict HOLD everywhere, and the ML trader then never
+    # submits an order. Train long enough that the smoke test exercises real orders.
+    train(exports / layout, checkpoint, TrainingConfig(model=architecture, epochs=20))
     result = subprocess.run(
         ["node", "--import", "tsx", "tests/fixtures/local-market-smoke.ts", mode],
         cwd=ROOT,

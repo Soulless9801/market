@@ -36,8 +36,10 @@ class CNN(nn.Module):
             len(kernel_sizes) == len(channels),
             "Number of kernel sizes must match number of channels",
         )
-        # kernel_size = integer(config["kernel_size"], "kernel_size", 1)
-        # require(kernel_size % 2 == 1, "kernel_size must be odd to preserve sequence length")
+        require(
+            all(k % 2 == 1 for k in kernel_sizes),
+            "kernel sizes must be odd to preserve sequence length",
+        )
         pool_size = integer(config["pool_size"], "pool_size", 1, self.input_size)
         dropout = config["dropout"]
         require(
@@ -82,7 +84,7 @@ def configure(metadata: dict, options: dict) -> dict:
         "input_shape": metadata["inputShape"],
         "num_classes": metadata["numClasses"],
         "channels": options.get("channels", [8, 16, 32]),
-        "kernel_size": options.get("kernel_sizes", [7, 5, 3]),
+        "kernel_size": options.get("kernel_size", [7, 5, 3]),
         "pool_size": options.get("pool_size", min(4, metadata["inputShape"][0])),
         "dropout": options.get("dropout", 0.2),
     }

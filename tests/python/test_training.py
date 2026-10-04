@@ -1,5 +1,4 @@
 import copy
-import json
 import random
 import subprocess
 import sys
@@ -50,7 +49,7 @@ def test_mlp_uses_dataset_dimensions_and_small_architecture(exports, layout):
 
 @pytest.mark.parametrize(("architecture", "layout", "options"), [
     ("mlp", "mlp", {"hidden_sizes": [8, 4]}),
-    ("cnn", "cnn", {"channels": [4, 8], "kernel_size": 5, "pool_size": 3, "dropout": 0.3}),
+    ("cnn", "cnn", {"channels": [4, 8], "kernel_size": [5, 3], "pool_size": 3, "dropout": 0.3}),
 ])
 def test_training_is_repeatable_and_checkpoint_predictions_match(
     exports, tmp_path, architecture, layout, options
@@ -200,8 +199,7 @@ def test_cli_import_safe_and_trains_real_export(exports, tmp_path):
         text=True,
         check=True,
     )
-    report = json.loads(result.stdout.splitlines()[-1])
-    assert report["best_epoch"] == 1
+    assert "Best Epoch: 1\n" in result.stdout
     assert (tmp_path / "cli.pt").exists()
 
 
