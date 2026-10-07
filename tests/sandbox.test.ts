@@ -35,7 +35,7 @@ it("renders arbitrary model aliases and only the supplied ML participant's stats
 		catalog: { defaultAlias: "third-release", models: ["first", "second", "third-release"].map(alias => ({ alias, metadata: {} })) },
 		selectedAlias: "third-release", activeSeed: 0, isReady: true,
 		participant: { agentId: SANDBOX_ML_AGENT_ID, pnl: 12.5, equity: 100012.5, cash: 90000, inventory: 100, marketValue: 10012.5, ordersSubmitted: 27 },
-		onSelect: async () => {}, onDefaultPopulation: async () => {},
+		onSelect: async () => {}
 	}));
 	expect(html).toContain('aria-pressed="true">third-release');
 	expect(html).toContain("Default participants + ML agent");
