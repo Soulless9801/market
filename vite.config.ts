@@ -4,15 +4,15 @@ import { localInferencePlugin } from "./src/runtime/python/localInferencePlugin.
 
 export default defineConfig({
     plugins: [react(), localInferencePlugin({
-		modelAlias: process.env.MARKET_MODEL_ALIAS ?? "mlp-baseline",
+		modelAlias: process.env.MARKET_MODEL_ALIAS,
 		python: {
 			pythonExecutable: process.env.MARKET_PYTHON ?? ".venv/bin/python",
-			checkpoints: {
-				[process.env.MARKET_MODEL_ALIAS ?? "mlp-baseline"]:
-					process.env.MARKET_CHECKPOINT ?? "models/checkpoints/mlp-baseline.pt",
-				["cnn-baseline"]:
-					process.env.MARKET_CHECKPOINT ?? "models/checkpoints/cnn-baseline.pt",
-			},
+			// A single-checkpoint override remains useful for training and smoke tests.
+			...(process.env.MARKET_CHECKPOINT ? {
+				checkpoints: { [process.env.MARKET_MODEL_ALIAS ?? "custom-model"]: process.env.MARKET_CHECKPOINT },
+			} : {
+				registryPath: process.env.MARKET_REGISTRY ?? "models/deployment/registry.json",
+			}),
 		},
 	})],
 	resolve: {

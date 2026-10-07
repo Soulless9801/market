@@ -5,3 +5,8 @@ export interface LocalModelDescriptor {
 	alias: string;
 	metadata: unknown;
 }
+
+export interface LocalModelCatalog {
+	defaultAlias: string;
+	models: LocalModelDescriptor[];
+}

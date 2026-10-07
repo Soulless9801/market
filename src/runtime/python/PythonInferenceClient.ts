@@ -224,6 +224,11 @@ export class PythonInferenceClient {
 	}
 
 	/** The consumer validates this checkpoint contract against its registered feature layout. */
+	async getModels(): Promise<Record<string, unknown>> {
+		await this.start();
+		return structuredClone(this.metadata);
+	}
+
 	async getMetadata(alias: string): Promise<unknown> {
 		validateModelAlias(alias);
 		await this.start();

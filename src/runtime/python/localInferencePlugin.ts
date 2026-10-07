@@ -4,13 +4,14 @@ import { LOCAL_INFERENCE_PATH } from "../local-inference.ts";
 import { PythonInferenceClient, type PythonInferenceOptions } from "./PythonInferenceClient.ts";
 
 interface InferenceBackend {
+	getModels(): Promise<Record<string, unknown>>;
 	getMetadata(alias: string): Promise<unknown>;
 	predict(alias: string, input: number[]): Promise<number[]>;
 	shutdown(): Promise<void>;
 }
 
 export interface LocalInferenceOptions {
-	modelAlias: string;
+	modelAlias?: string;
 	python: PythonInferenceOptions;
 }
 
@@ -20,7 +21,7 @@ function sendJson(response: ServerResponse, status: number, body: unknown) {
 }
 
 /** Only the local Vite host owns Python. Checkpoint paths never come from browser requests. */
-export function createLocalInferenceHandler(backend: InferenceBackend, modelAlias: string) {
+export function createLocalInferenceHandler(backend: InferenceBackend, modelAlias?: string) {
 	return async (request: IncomingMessage, response: ServerResponse, next: () => void) => {
 		const path = request.url?.split("?")[0];
 		if (path !== LOCAL_INFERENCE_PATH && !path?.startsWith(`${LOCAL_INFERENCE_PATH}/`)) {
@@ -50,8 +51,24 @@ export function createLocalInferenceHandler(backend: InferenceBackend, modelAlia
 			}
 		}
 		try {
+			// Aliases come from the loaded registry, never arbitrary browser checkpoint paths.
+			const models = await backend.getModels();
+			// Sorting also keeps numeric-looking aliases consistent between Python and JavaScript.
+			const aliases = Object.keys(models).sort();
+			const defaultAlias = modelAlias ?? aliases[0];
+			if (!defaultAlias || !Object.hasOwn(models, defaultAlias)) throw new Error("Default model is not in the catalog");
+			if (path === `${LOCAL_INFERENCE_PATH}/models` && request.method === "GET") {
+				sendJson(response, 200, { defaultAlias, models: aliases.map(alias => ({ alias, metadata: models[alias] })) });
+				return;
+			}
 			if (path === `${LOCAL_INFERENCE_PATH}/model` && request.method === "GET") {
-				sendJson(response, 200, { alias: modelAlias, metadata: await backend.getMetadata(modelAlias) });
+				const aliases = new URL(request.url!, "http://localhost").searchParams.getAll("alias");
+				const alias = aliases[0] ?? defaultAlias;
+				if (aliases.length > 1 || !Object.hasOwn(models, alias)) {
+					sendJson(response, 400, { error: "Unknown model alias" });
+					return;
+				}
+				sendJson(response, 200, { alias, metadata: models[alias] });
 				return;
 			}
 			if (path !== `${LOCAL_INFERENCE_PATH}/predict` || request.method !== "POST") {
@@ -79,12 +96,20 @@ export function createLocalInferenceHandler(backend: InferenceBackend, modelAlia
 				sendJson(response, 400, { error: "Invalid JSON" });
 				return;
 			}
-			const input = (body as { input?: unknown } | null)?.input;
+			if (!body || typeof body !== "object" || Array.isArray(body) || Object.keys(body).some(key => !["input", "model"].includes(key))) {
+				sendJson(response, 400, { error: "Expected an input feature vector and optional model alias" });
+				return;
+			}
+			const { input, model = defaultAlias } = body as { input?: unknown; model?: unknown };
+			if (typeof model !== "string" || !Object.hasOwn(models, model)) {
+				sendJson(response, 400, { error: "Unknown model alias" });
+				return;
+			}
 			if (!Array.isArray(input) || !input.length || input.some(value => typeof value !== "number" || !Number.isFinite(value))) {
 				sendJson(response, 400, { error: "Expected a nonempty finite feature vector" });
 				return;
 			}
-			sendJson(response, 200, { prediction: await backend.predict(modelAlias, input) });
+			sendJson(response, 200, { prediction: await backend.predict(model, input) });
 		} catch (error) {
 			sendJson(response, 503, { error: error instanceof Error ? error.message : String(error) });
 		}

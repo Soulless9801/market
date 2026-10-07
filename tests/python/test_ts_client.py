@@ -70,3 +70,24 @@ def test_local_marketview_uses_python_through_vite(exports, tmp_path, mode, arch
     )
     assert result.returncode == 0, result.stdout + result.stderr
     assert "Local MarketView Python integration passed" in result.stdout
+
+
+@pytest.mark.parametrize("mode", ["dev", "preview"])
+def test_catalog_with_both_deployed_models_and_third_alias(tmp_path, mode):
+    registry = tmp_path / "catalog.json"
+    registry.write_text(json.dumps({
+        "first": str(ROOT / "models/deployment/market.pt"),
+        "second": str(ROOT / "models/deployment/cnn-orderbook.pt"),
+        "third-independent": str(ROOT / "models/deployment/market.pt"),
+    }))
+    environment = {key: value for key, value in os.environ.items()
+                   if key not in ("MARKET_CHECKPOINT", "MARKET_MODEL_ALIAS")}
+    result = subprocess.run(
+        ["node", "--import", "tsx", "tests/fixtures/local-market-smoke.ts", mode],
+        cwd=ROOT,
+        env={**environment, "TSX_TSCONFIG_PATH": "tsconfig.scripts.json",
+             "MARKET_PYTHON": sys.executable, "MARKET_REGISTRY": str(registry)},
+        capture_output=True, text=True, timeout=60,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "Local MarketView Python integration passed" in result.stdout

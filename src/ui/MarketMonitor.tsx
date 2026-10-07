@@ -4,6 +4,7 @@ import "./MarketMonitor.css";
 import { CandlestickChart } from "./CandlestickChart";
 import { OrderBook } from "./OrderBook";
 import { TradeTape } from "./TradeTape";
+import { ModelSandbox } from "./ModelSandbox";
 import { formatPrice, formatQuantity } from "./format";
 
 function formatCash(value: number): string {
@@ -29,6 +30,11 @@ function MarketMonitor() {
 		modelStatus,
 		error,
 		isReady,
+		catalog, 
+		selectedAlias, 
+		activeSeed, 
+		mlParticipant, 
+		selectModel,
 	} = useSimulationController();
 
 	return (
@@ -65,8 +71,11 @@ function MarketMonitor() {
 					</div>
 				</header>
 
+				<ModelSandbox catalog={catalog} selectedAlias={selectedAlias} activeSeed={activeSeed}
+					participant={mlParticipant} isReady={isReady} onSelect={selectModel} />
+
 				<div className="market-status" role={error ? "alert" : "status"}>
-					{error ? `Local ML Unavailable` : modelStatus}
+					{error ? `ML unavailable: ${error}` : modelStatus}
 				</div>
 
 				<section className="market-grid">

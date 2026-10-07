@@ -99,3 +99,37 @@ def test_missing_checkpoint_is_a_visible_service_error(server, tmp_path):
     assert "Model unavailable" in body["error"]
     # Do not leak the deployment's filesystem paths to public callers.
     assert str(tmp_path) not in body["error"]
+
+
+def test_catalog_routes_three_aliases_without_changing_other_sessions(
+    server, hosted_checkpoint, tmp_path
+):
+    paths = {"first-release": str(DEFAULT_CHECKPOINT), "second-release": str(hosted_checkpoint),
+             "independent-release": str(hosted_checkpoint)}
+    config = tmp_path / "registry.json"
+    config.write_text(json.dumps(paths))
+    server[1].registry_path = config
+    server[1].checkpoint = None
+    server[1].alias = "second-release"
+    status, catalog, _ = request(server, operation="models")
+    assert status == 200
+    assert catalog["defaultAlias"] == "second-release"
+    assert [model["alias"] for model in catalog["models"]] == sorted(paths)
+    assert str(tmp_path) not in json.dumps(catalog)
+    reference = CheckpointRegistry(paths)
+    for model in catalog["models"]:
+        alias = model["alias"]
+        values = [0.0] * model["metadata"]["inputShape"][0]
+        status, prediction, _ = request(
+            server, "POST", "predict", json.dumps({"model": alias, "input": values})
+        )
+        assert status == 200
+        assert prediction["prediction"] == reference.predict(alias, values)
+        assert request(server, path=f"/api/inference?operation=model&alias={alias}")[1] == model
+    assert request(server)[1]["alias"] == "second-release"
+    for alias in ("missing", None, [], "", "../checkpoint.pt"):
+        response = request(server, "POST", "predict", json.dumps({"model": alias, "input": [0]}))
+        assert response[0] == 400
+    assert request(server, path="/api/inference?operation=model&alias=missing")[0] == 400
+    duplicate = "/api/inference?operation=model&alias=first-release&alias=second-release"
+    assert request(server, path=duplicate)[0] == 400

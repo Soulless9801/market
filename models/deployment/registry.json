@@ -1,0 +1,4 @@
+{
+  "cnn-baseline": "cnn-orderbook.pt",
+  "mlp-baseline": "market.pt"
+}

@@ -3,7 +3,7 @@ import { build, createServer, preview } from "vite";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { loadLocalModel } from "@/runtime/browser/localModel";
+import { bindLocalModel, loadLocalModel, loadLocalModelCatalog } from "@/runtime/browser/localModel";
 import { buildAgents, Simulator } from "@/simulation";
 import { buildMarketViewModel } from "@/ui/ViewModel";
 
@@ -25,7 +25,18 @@ try {
 	assert.equal(page.status, 200);
 	if (isPreview) assert.match(await page.text(), /\/assets\/index-.*\.js/);
 	const binding = await loadLocalModel();
-	assert.equal(binding.alias, process.env.MARKET_MODEL_ALIAS);
+	const catalog = await loadLocalModelCatalog();
+	assert.equal(binding.alias, catalog.defaultAlias);
+	if (process.env.MARKET_MODEL_ALIAS) assert.equal(binding.alias, process.env.MARKET_MODEL_ALIAS);
+	// Each independently selected alias must work through the same browser adapter.
+	for (const descriptor of catalog.models) {
+		const selected = bindLocalModel(descriptor);
+		assert.equal((await loadLocalModel(selected.alias)).featureLayout, selected.featureLayout);
+		const run = new Simulator({ agents: buildAgents(0, 100, selected), referencePrice: 100 });
+		for (let step = 0; step < 30; step++) await run.runStepAsync();
+		assert.equal(run.getClock(), 30);
+		assert(run.getParticpantPortfolios().some(p => p.participantId === "ml-10"));
+	}
 	const simulator = new Simulator({ agents: buildAgents(15, 100, binding), referencePrice: 100 });
 	for (let step = 0; step < 30; step++) await simulator.runStepAsync();
 	const view = buildMarketViewModel(

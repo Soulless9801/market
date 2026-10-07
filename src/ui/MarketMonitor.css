@@ -300,3 +300,63 @@ select.market-control {
 	.trade-tape-columns { gap: 6px; padding-inline: 8px; font-size: 12px; }
 	.trade-tape-heading { font-size: 10px; }
 }
+
+.model-sandbox {
+	padding: 16px;
+	border: 1px solid var(--market-border);
+	background: var(--market-panel);
+}
+
+.model-sandbox-heading {
+	display: flex;
+	justify-content: space-between;
+	align-items: start;
+	flex-wrap: wrap;
+	gap: 12px;
+	margin-bottom: 12px;
+}
+
+.model-sandbox-heading p,
+.sandbox-run-description {
+	margin: 0 0 12px;
+	font-size: 13px;
+	color: var(--market-muted);
+}
+
+.model-choices {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-bottom: 12px;
+}
+
+.model-choice,
+.sandbox-preset {
+	padding: 8px 12px;
+	border: 1px solid var(--market-border);
+	background: var(--market-surface);
+	color: var(--market-text);
+	overflow-wrap: anywhere;
+}
+
+.model-choice[aria-pressed="true"] {
+	background: var(--market-text);
+	border-color: var(--market-text);
+	color: var(--market-background);
+}
+
+.ml-agent-stats {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+	gap: 8px;
+	margin: 0;
+}
+
+.ml-agent-stats > div {
+	min-width: 0;
+	padding: 10px;
+	border: 1px solid var(--market-border);
+}
+
+.ml-agent-stats dt { color: var(--market-muted); font-size: 12px; }
+.ml-agent-stats dd { margin: 6px 0 0; overflow-wrap: anywhere; }

@@ -262,16 +262,22 @@ export function buildRandomAgents(seed: number, referencePrice = 100, count = 10
 	return agents;
 }
 
+export const DEFAULT_POPULATION_SEED = 0;
+export const SANDBOX_ML_AGENT_ID = "ml-10";
+
 export function buildAgents(
 	seed: number, referencePrice = 100,
 	prediction?: Pick<MLTraderAgentOptions, "model" | "featureLayout">,
 ): TraderAgent[] {
 	const agentCount = 10;
-	const bots: TraderAgent[] = buildRandomAgents(seed, referencePrice, agentCount);
+	// Seed zero is the sandbox's fixed population preset; other seeds retain the random mix.
+	const bots: TraderAgent[] = seed === DEFAULT_POPULATION_SEED
+		? buildDefaultAgents(seed, referencePrice)
+		: buildRandomAgents(seed, referencePrice, agentCount);
 	// Browser-only callers have no subprocess transport. Add ML only when the host
 	// supplies a model binding; never silently substitute a different local model.
 	if (!prediction) return bots;
-	const mlAgent = new MLTraderAgent("ml-" + agentCount, {
+	const mlAgent = new MLTraderAgent(SANDBOX_ML_AGENT_ID, {
 		...prediction,
 		referencePrice,
 		spread: 2,

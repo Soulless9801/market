@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { calculateMidPrice } from "@/engine";
-import { buildAgents, Simulator } from "@/simulation";
-import { loadLocalModel } from "@/runtime/browser/localModel";
+import { buildAgents, SANDBOX_ML_AGENT_ID, Simulator } from "@/simulation";
+import { bindLocalModel, loadLocalModelCatalog, type LocalModelBinding } from "@/runtime/browser/localModel";
+import type { LocalModelCatalog } from "@/runtime/local-inference";
 import { BOOK_DEPTH, buildMarketViewModel } from "./ViewModel";
 import { CHART_HISTORY_LIMIT } from "./candles";
 
 const DEFAULT_SEED = 15;
 const REFERENCE_PRICE = 100;
 
-function createSimulator(seed: number, binding?: Awaited<ReturnType<typeof loadLocalModel>>) {
+function createSimulator(seed: number, binding?: LocalModelBinding) {
 	return new Simulator({
 		agents: buildAgents(seed, REFERENCE_PRICE, binding),
 		referencePrice: REFERENCE_PRICE,
@@ -36,8 +37,12 @@ export function useSimulationController() {
 	const [modelStatus, setModelStatus] = useState("Loading…");
 	const [error, setError] = useState<string | null>(null);
 	const [isReady, setIsReady] = useState(false);
+	const catalogRef = useRef<LocalModelCatalog | null>(null);
+	const [catalog, setCatalog] = useState<LocalModelCatalog | null>(null);
+	const [selectedAlias, setSelectedAlias] = useState<string | null>(null);
+	const [activeSeed, setActiveSeed] = useState(DEFAULT_SEED);
 
-	const initialize = useCallback(async (nextSeed: number) => {
+	const initialize = useCallback(async (nextSeed: number, alias?: string) => {
 		const generation = ++generationRef.current;
 		// Recreate agents to rewind their RNGs; discard results from an older reset.
 		simulatorRef.current = null;
@@ -47,11 +52,18 @@ export function useSimulationController() {
 		try {
 			if (!Number.isSafeInteger(nextSeed) || nextSeed < 0 || nextSeed > 0xffffffff)
 				throw new Error("Seed must be an integer between 0 and 4294967295");
-			const binding = await loadLocalModel();
+			const nextCatalog = catalogRef.current ?? await loadLocalModelCatalog();
 			if (generation !== generationRef.current) return;
+			catalogRef.current = nextCatalog;
+			setCatalog(nextCatalog);
+			const descriptor = nextCatalog.models.find(model => model.alias === (alias ?? nextCatalog.defaultAlias));
+			if (!descriptor) throw new Error("Selected model is not in the catalog");
+			const binding = bindLocalModel(descriptor);
 			const simulator = createSimulator(nextSeed, binding);
 			simulatorRef.current = simulator;
 			setViewModel(buildViewModel(simulator));
+			setSelectedAlias(binding.alias);
+			setActiveSeed(nextSeed);
 			setModelStatus(`Sandboxing · ${binding.alias}`);
 			setIsReady(true);
 		} catch (cause) {
@@ -99,7 +111,10 @@ export function useSimulationController() {
 
 	return {
 		viewModel, isRunning, seed, playbackSpeed, modelStatus, error, isReady,
+		catalog, selectedAlias, activeSeed,
+		mlParticipant: isReady ? viewModel.participants.find(participant => participant.agentId === SANDBOX_ML_AGENT_ID) : undefined,
 		setSeed, setIsRunning, setPlaybackSpeed,
-		reset: () => initialize(seed),
+		selectModel: (alias: string) => initialize(seed, alias),
+		reset: () => initialize(seed, selectedAlias ?? undefined),
 	};
 }
